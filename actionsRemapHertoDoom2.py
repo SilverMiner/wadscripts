@@ -1,6 +1,7 @@
-#!/usr/bin/env python2
+#!/usr/bin/env python3
 
 #21:25 08.03.2025 SilverMiner convert Heretic maps to MBF
+#15:45 16.03.2025 add 3 modes
 
 from sys import argv
 from omg import *
@@ -28,6 +29,13 @@ action_map = {
 	105: 124,
 	106: 12680,
 	107: 12682
+}
+action_maplr = {
+	99: 48,
+	100: 105,
+	105: 124,
+	106: 100,
+	107: 127
 }
 
 angle_map = {
@@ -124,10 +132,15 @@ thing_map = {
 92: 3003,
 2002: 2006,
 }
+mode_map = {
+	'-mbf': 0,
+	'-br2': 1,
+	'-lr': 2,
+}
 #def sefs15(s,ed):
 
 def sefs2039(s,ed,parm253):
-	global xmin, ymin, xmax, ymax, unique_tag,add_sector,add_sidedef,add_linedef,add_vertex,add_thing
+	global xmin, ymin, xmax, ymax, unique_tag,add_sector,add_sidedef,add_linedef,add_vertex,add_thing,mode
 	se = s.type
 	s.type = 768
 	foundExisting = False
@@ -194,7 +207,7 @@ def sefs2039(s,ed,parm253):
 
 
 def heretic2mbf(map):
-	global xmin, ymin, xmax, ymax, unique_tag,add_sector,add_sidedef,add_linedef,add_vertex,add_thing
+	global xmin, ymin, xmax, ymax, unique_tag,add_sector,add_sidedef,add_linedef,add_vertex,add_thing,mode
 	ed = MapEditor(map)
 	
 	add_sector = make_adder(ed.sectors, omg.Sector)
@@ -219,43 +232,75 @@ def heretic2mbf(map):
 		xmax = max(xmax, v.x)
 		ymin = min(ymin, v.y)
 		ymax = max(ymax, v.y)
+	if mode == 0:
+		for s in ed.sectors:
+			if s.type == 4:
+				s.type = 66
+			elif s.type == 15:
+				sefs2039(s,ed,223)
+			elif s.type >= 20 and s.type <= 39:
+				sefs2039(s,ed,253)
+			elif s.type >= 40 and s.type <= 51:
+				sefs2039(s,ed,224)
+	if mode < 2:
+		theactionmap = action_map
+	else:
+		theactionmap = action_maplr
+		for s in ed.sectors:
+			if s.type == 1:
+				s.type = 17
+			elif s.type in [4,5]:
+				s.type = 7
+			elif s.type == 16:
+				s.type = 5
+			elif s.type in [6,15,*range(21,52)]:
+				s.type = 0
 
-	for s in ed.sectors:
-		if s.type == 4:
-			s.type = 66
-		elif s.type == 15:
-			sefs2039(s,ed,223)
-		elif s.type >= 20 and s.type <= 39:
-			sefs2039(s,ed,253)
-		elif s.type >= 40 and s.type <= 51:
-			sefs2039(s,ed,224)
-		
 	for s in ed.linedefs:
-		s.action = action_map.get(s.action, s.action)
-		
-	for t in ed.things:
-		t.type = thing_map.get(t.type, t.type)
+		s.action = theactionmap.get(s.action, s.action)
 	
+	if mode == 1:
+		for t in ed.things:
+			num = t.type
+			if(num <= 96 and num>=5):
+				t.type+=7000
+			elif((num >= 2001 and num <= 2005) or num == 2035):
+				t.type+=5200
+			else:
+				continue
+	else:
+		for t in ed.things:
+			t.type = thing_map.get(t.type, t.type)
+
 
 
 	return ed.to_lumps()
 
+mode = 0
+pattern = "*"
 
 def main(args):
+	global pattern,mode
 	if (len(args) < 2):
-		print ("	Omgifol script: change linedef specials\n")
+		print ("	Omgifol script: convert Heretic map to MBF\n")
 		print ("	Usage:")
-		print ("	actionsRemap.py input.wad output.wad [pattern]\n")
-		print ("	Relight all maps or those whose name match the given pattern")
-		print ("	(eg E?M4 or MAP*).")
+		print ("	actionsRemapHer2Doom.py input.wad output.wad [-mbf/-lr/-br2] [pattern]\n")
+		print ("	i remember my mus_e1m1 got erased somehow lol")
+		print ("	pattern is like E?M4 or MAP*.")
+		print ("	-mbf is default mode. -br2 means one for my 4 iwads zdoom mission pack.")
 	else:
 		print ("Loading %s..." % args[0])
 		inwad = WAD()
 		outwad = WAD()
 		inwad.from_file(args[0])
-		pattern = "*"
-		if (len(args) == 3):
-			pattern = args[2]
+		
+		if (len(args) >= 3):
+			for arg in args[2:]:
+				if arg in mode_map:
+					mode = mode_map.get(arg, 0)
+				else:
+					pattern = arg
+		
 		for name in inwad.maps.find(pattern):
 			print ("Remapping %s" % name)
 			outwad.maps[name] = heretic2mbf(inwad.maps[name])
