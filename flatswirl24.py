@@ -31,7 +31,7 @@ def main():
     #print('write [input output] like fwater ')
     #w = list(map(str, input().split()))
 
-    flatname = argv[1]
+    flatname = find_file_by_name(argv[1])
     outname = argv[2]
 
     with open(flatname, 'rb') as flat:
