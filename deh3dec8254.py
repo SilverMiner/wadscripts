@@ -1200,7 +1200,7 @@ def doAction(state):
         pitch = int32tofixed(args[2])
         xyoffs = int32tofixed(args[3])
         zoffs = int32tofixed(args[4])
-        expr = f'A_FireCustomMissile("{typ}",{angle},0,{xyoffs},{zoffs})'
+        expr = f'A_FireCustomMissile("{typ}",{angle},{curwepnammouse},{xyoffs},{zoffs})'
         
     elif action == 'WeaponBulletAttack':
         spreadxy = int32tofixed(args[0])
