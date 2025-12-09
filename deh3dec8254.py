@@ -13,7 +13,9 @@ wha = 'H:\\Compilers\\dehacked2decorate\\BaseTables\\'
 #patient = "H:\\Games\\dsda262\\DEHACKEDEVITERNITY2.txt"
 #patient = "H:/Games/Doom/templeaaaaDEHACKED.txt"
 #patient = "H:/Games/Doom/DEHACKEDmishka.txt"
-patient = "H:/Games/Doom/DEHACKEDRMG_City.txt"
+#patient = "H:/Games/Doom/DEHACKEDRMG_City.txt"
+#patient = "H:/Games/Doom/dbp50stalk17.bex"
+patient = "H:/Games/Doom/DEHACKEDadmortem.txt"
 files = ['base_states2.dat','base_things.dat']
 labelDict = {}
 
@@ -1165,7 +1167,7 @@ def doAction(state):
     #    
     # 5 JUMPS BEGIN
     #
-    elif action == 'JumpIfHealthLower':
+    elif action == 'JumpIfHealthBelow':
         helth = args[1]
         labl = labelDict.get(args[0],0)
         expr = f'A_JumpIfHealthLower({helth},"{labl}")'
