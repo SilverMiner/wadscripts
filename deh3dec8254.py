@@ -15,7 +15,8 @@ wha = 'H:\\Compilers\\dehacked2decorate\\BaseTables\\'
 #patient = "H:/Games/Doom/DEHACKEDmishka.txt"
 #patient = "H:/Games/Doom/DEHACKEDRMG_City.txt"
 #patient = "H:/Games/Doom/dbp50stalk17.bex"
-patient = "H:/Games/Doom/DEHACKEDadmortem.txt"
+#patient = "H:/Games/Doom/DEHACKEDadmortem.txt"
+patient = "H:/Games/Doom/DEHACKEDnt2fv5.txt"
 files = ['base_states2.dat','base_things.dat']
 labelDict = {}
 
@@ -750,14 +751,15 @@ WEAPONTABLE = [
 
 WEAPONNAMES = [
 'Fist',
-'Pistol'
+'Pistol',
 'Shotgun',
 "Chaingun",
 "RocketLauncher",
 "PlasmaRifle",
 "BFG9000",
 "Chainsaw",
-"SuperShotgun"
+"SuperShotgun",
+
 ]
 
 def extract_number(line):
@@ -1218,27 +1220,30 @@ def doAction(state):
         bers = int32tofixed(args[2]) or 1.0
         sound = getSoundName(args[3])
         rangee = int32tofixed(args[4])
-
-        if bers != 1.0:
-            si = state.index
-            beatsprseq = (
-f'{zdoomspritenames(state.sprite)} '
-f'{BUKVATABLE(state.frame & 0x7FFF)} '
-                )
-            if (state.frame & 32768):
-                beatsprseq += "Bright "
+        beatsprseq = (
+        f'{zdoomspritenames(state.sprite)} '
+        f'{BUKVATABLE(state.frame & 0x7FFF)} '
+                        )
+        if (state.frame & 32768):
+            beatsprseq += "Bright "
             
-            damageexpr1 = f'{base}*random[mbf21](1,{dice})'
+        si = state.index
+        damageexpr1 = f'{base}*random[mbf21](1,{dice})'
+        if bers != 1.0:
             damageexpr2 = f'{bers*base}*random[mbf21](1,{dice})'
             expr = (
-f'TNT1 A 0 A_JumpIfInventory("PowerStrength", 1, "Berserked{si}")\n'
+f'\nTNT1 A 0 A_JumpIfInventory("PowerStrength", 1, "Berserked{si}")\n'
 f'Normal{si}:\n'
-f'{beatsprseq} A_CustomPunch({damageexpr1}, TRUE)\n'
+f'{beatsprseq} {state.tics} A_CustomPunch({damageexpr1}, TRUE, 0, "BulletPuff", {rangee}, 0,0,0, "{sound}")\n'
 f'Goto FireEnd{si}\n'
 f'Berserked{si}:\n'
-f'{beatsprseq} A_CustomPunch({damageexpr2}, TRUE)\n'
+f'{beatsprseq} {state.tics} A_CustomPunch({damageexpr2}, TRUE, 0, "BulletPuff", {rangee}, 0,0,0, "{sound}")\n'
 f'FireEnd{si}:\n'
 )
+        else:
+            expr = (
+f'{beatsprseq} {state.tics} A_CustomPunch({damageexpr1}, TRUE, 0, "BulletPuff", {rangee}, 0,0,0, "{sound}")\n'
+                )
     elif action == 'WeaponAlert':
         expr = 'A_AlertMonsters'
     elif action == 'WeaponJump':
@@ -1275,7 +1280,7 @@ f'FireEnd{si}:\n'
         sound = getSoundName(args[0])
         attn = 'ATTN_NONE' if misc2!=0 else 'ATTN_NORM'
         #expr = f'A_StartSound("{sound}", CHAN_WEAPON, 0, 1.0, {attn})'
-        expr = f'A_PlaySound("{sound}",CHAN_WEAPON,1.0,FALSE,{attn})'
+        expr = f'A_PlaySound("{sound}",CHAN_WEAPON,1.0,FALSE,{attn})\n'
         
     #
     # WEPEN END
@@ -1656,13 +1661,15 @@ WPNUM2ANUM = {
     
 def decorateWepenStates(wepennum):
 
-    global curwepnammotype, curwepnammouse
+    global curwepnammotype, curwepnammouse, vivod
     
     notHasHealState = True
     
     statesStream = ''
     actorid = WPNUM2ANUM.get(wepennum,-1)
     wn = wt[wepennum]
+    #16:59 11.12.2025 lol this lived up to this moment, i did not look at old weapon table
+    wnold = wt0[wepennum]
     curwepnammotype = wn.ammo
     curwepnammouse = wn.ammopershot
     wepenstates = [
@@ -1683,11 +1690,11 @@ def decorateWepenStates(wepennum):
         ]
     #print(newWeaponStateLoops)
     oldWeaponStateLoops = [
-getLoop(wn.upstate, st0), 
-getLoop(wn.downstate, st0),
-getLoop(wn.readystate, st0),
-getLoop(wn.atkstate, st0),
-getLoop(wn.flashstate, st0)
+getLoop(wnold.upstate, st0), 
+getLoop(wnold.downstate, st0),
+getLoop(wnold.readystate, st0),
+getLoop(wnold.atkstate, st0),
+getLoop(wnold.flashstate, st0)
         ]
     
     modWeaponStateLoops =[]
@@ -1696,7 +1703,9 @@ getLoop(wn.flashstate, st0)
             modWeaponStateLoops.append(newWeaponStateLoops[ka])
         else:
             modWeaponStateLoops.append([])
-            
+    #vivod+=(newWeaponStateLoops)
+    #vivod+=(oldWeaponStateLoops)
+    print(WEAPONNAMES[wepennum],newWeaponStateLoops,oldWeaponStateLoops)
     if actorid != -1:
         actor=decactors[actorid]
         tta = tt[actorid]
@@ -2318,12 +2327,16 @@ print(vivod, len(decactors))
 #print(state_loopstream)
 #20:14 11.05.2025
 #version 52 lol
+#print('/*')
+vivod+='/*\n'
 for key,value in sfxAliases.items():
     
     if key>=500:
         key2 = key - 500
         vivod+='dehextra/sound'+str(key2)+' '+str(value)+'\n'
+vivod+='*/'
 print(vivod)
+#print('*/')
 #if __name__ == "__main__":
 #	main(argv[1:])
 
