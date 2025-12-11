@@ -1234,15 +1234,15 @@ def doAction(state):
             expr = (
 f'\nTNT1 A 0 A_JumpIfInventory("PowerStrength", 1, "Berserked{si}")\n'
 f'Normal{si}:\n'
-f'{beatsprseq} {state.tics} A_CustomPunch({damageexpr1}, TRUE, 0, "BulletPuff", {rangee}, 0,0,0, "{sound}")\n'
+f'{beatsprseq} {state.tics} A_CustomPunch({damageexpr1}, TRUE, 0, "BulletPuff", {rangee}, 0,0,"ArmorBonus", "{sound}")\n'
 f'Goto FireEnd{si}\n'
 f'Berserked{si}:\n'
-f'{beatsprseq} {state.tics} A_CustomPunch({damageexpr2}, TRUE, 0, "BulletPuff", {rangee}, 0,0,0, "{sound}")\n'
+f'{beatsprseq} {state.tics} A_CustomPunch({damageexpr2}, TRUE, 0, "BulletPuff", {rangee}, 0,0,"ArmorBonus", "{sound}")\n'
 f'FireEnd{si}:\n'
 )
         else:
             expr = (
-f'{beatsprseq} {state.tics} A_CustomPunch({damageexpr1}, TRUE, 0, "BulletPuff", {rangee}, 0,0,0, "{sound}")\n'
+f'{beatsprseq} {state.tics} A_CustomPunch({damageexpr1}, TRUE, 0, "BulletPuff", {rangee}, 0,0,"ArmorBonus", "{sound}")\n'
                 )
     elif action == 'WeaponAlert':
         expr = 'A_AlertMonsters'
@@ -1503,21 +1503,28 @@ def decorateStates(actor):
     tempFrames = []
     tempStateLoops = []
     #listedRandomJumps = {}
-    for i in jumpEnters:
-        if any(i in sublist for sublist in StateLoops):
-            j = get_corresponding_number(i,jumpEnters,jumpOuts)
-            if j not in tempFrames and j not in loopFrames:
-                tempRandomLoop = getLoop(j, st)
-                #cc+=1
-                if tempRandomLoop:
-                    #cc+=1
-                    #statesStream += f'{j} ugabuga\n'
-                    
-                    tempFrames.append(j)
-                    tempStateLoops.append(tempRandomLoop)
+    # --- Branching of loops based on jumppoints ---
+
+    # Проходим по всем записям в jumppoints
+    for jp in jumppoints:
+        jump_enter_idx = jp.enter  # Индекс точки входа (например, 'HealChase')
+        jump_out_idx = jp.out      # Индекс точки выхода/перехода (например, 'Look')
+
+        # Проверяем, находится ли точка входа (jump_enter_idx) в каком-либо из основных StateLoops
+        # Если да, значит, этот переход реально используется в стейте актора
+        if any(jump_enter_idx in sublist for sublist in StateLoops):
+            # Теперь проверяем, что сам jump_out_idx ещё не назначен ни одному loop'у
+            # Это предотвращает дублирование, если несколько jumpEnter указывают на один jumpOut
+            if jump_out_idx not in tempFrames and jump_out_idx not in loopFrames:
+                # Получаем цикл состояний, начиная с jump_out_idx
+                tempRandomLoop = getLoop(jump_out_idx, st)
+
+                if tempRandomLoop: # Убедимся, что цикл не пустой
+                    #tempFrames.append(jump_out_idx)      # Добавляем индекс в список временных фреймов
+                    #tempStateLoops.append(tempRandomLoop) # Добавляем соответствующий цикл стейтов
     
-    loopFrames += tempFrames
-    StateLoops += tempStateLoops
+                    loopFrames.append(jump_out_idx) #tempFrames
+                    StateLoops.append(tempRandomLoop) #tempStateLoops
     
     #statesStream +=f'{loopFrames} {StateLoops}'
     for i in range(len(StateLoops)):
@@ -1705,7 +1712,7 @@ getLoop(wnold.flashstate, st0)
             modWeaponStateLoops.append([])
     #vivod+=(newWeaponStateLoops)
     #vivod+=(oldWeaponStateLoops)
-    print(WEAPONNAMES[wepennum],newWeaponStateLoops,oldWeaponStateLoops)
+    #print(WEAPONNAMES[wepennum],newWeaponStateLoops,oldWeaponStateLoops)
     if actorid != -1:
         actor=decactors[actorid]
         tta = tt[actorid]
@@ -1762,21 +1769,25 @@ getLoop(wnold.flashstate, st0)
     tempFrames = []
     tempStateLoops = []
     #listedRandomJumps = {}
-    for i in jumpEnters:
-        if any(i in sublist for sublist in StateLoops):
-            j = get_corresponding_number(i,jumpEnters,jumpOuts)
-            if j not in tempFrames and j not in loopFrames:
-                tempRandomLoop = getLoop(j, st)
-                #cc+=1
-                if tempRandomLoop:
-                    #cc+=1
-                    #statesStream += f'{j} ugabuga\n'
-                    
-                    tempFrames.append(j)
-                    tempStateLoops.append(tempRandomLoop)
+    for jp in jumppoints:
+        jump_enter_idx = jp.enter  # Индекс точки входа (например, 'HealChase')
+        jump_out_idx = jp.out      # Индекс точки выхода/перехода (например, 'Look')
+
+        # Проверяем, находится ли точка входа (jump_enter_idx) в каком-либо из основных StateLoops
+        # Если да, значит, этот переход реально используется в стейте актора
+        if any(jump_enter_idx in sublist for sublist in StateLoops):
+            # Теперь проверяем, что сам jump_out_idx ещё не назначен ни одному loop'у
+            # Это предотвращает дублирование, если несколько jumpEnter указывают на один jumpOut
+            if jump_out_idx not in tempFrames and jump_out_idx not in loopFrames:
+                # Получаем цикл состояний, начиная с jump_out_idx
+                tempRandomLoop = getLoop(jump_out_idx, st)
+
+                if tempRandomLoop: # Убедимся, что цикл не пустой
+                    #tempFrames.append(jump_out_idx)      # Добавляем индекс в список временных фреймов
+                    #tempStateLoops.append(tempRandomLoop) # Добавляем соответствующий цикл стейтов
     
-    loopFrames += tempFrames
-    StateLoops += tempStateLoops
+                    loopFrames.append(jump_out_idx) #tempFrames
+                    StateLoops.append(tempRandomLoop) #tempStateLoops
     
     #statesStream +=f'{loopFrames} {StateLoops}'
     for i in range(len(StateLoops)):
@@ -2218,7 +2229,7 @@ def getLoop(state_value, state_array):
     state_loop = []
     complete = False
     current_state = state_value
-
+        
     while not complete:
         state_loop.append(current_state)
         current_state = state_array[current_state].nextstate
@@ -2231,6 +2242,9 @@ def getLoop(state_value, state_array):
                 complete = True
                 break
     state_loopstream+=f'{state_loop}\n'
+    if 0 or not state_loop:
+        if state_value in jumpOuts:
+            print('Getloop: ',state_value)
     return state_loop
 
 def detect_inner_cycle(numbers):
