@@ -16,7 +16,8 @@ wha = 'H:\\Compilers\\dehacked2decorate\\BaseTables\\'
 #patient = "H:/Games/Doom/DEHACKEDRMG_City.txt"
 #patient = "H:/Games/Doom/dbp50stalk17.bex"
 #patient = "H:/Games/Doom/DEHACKEDadmortem.txt"
-patient = "H:/Games/Doom/DEHACKEDnt2fv5.txt"
+#patient = "H:/Games/Doom/DEHACKEDnt2fv5.txt"
+patient = "H:/Games/Doom/DEHACKED300lnmas.txt"
 files = ['base_states2.dat','base_things.dat']
 labelDict = {}
 
@@ -1265,7 +1266,7 @@ f'{beatsprseq} {state.tics} A_CustomPunch({damageexpr1}, TRUE, 0, "BulletPuff", 
             typ = 'Clip'
         expr = f'A_TakeInventory("{typ}",{howmuch},TIF_NOTAKEINFINITE)'
     elif action == 'CheckAmmo':
-        labl = labelDict.get(args[0],0)
+        labl = labelDict.get(args[0],"Deselect")
         expr = f'A_JumpIfNoAmmo("{labl}")'
         
 #23:57 21.05.2025 name flash is a mischoice. ZDoom wiki says.
@@ -1848,32 +1849,36 @@ getLoop(wnold.flashstate, st0)
             if StateLoops[i][j] in specialLoopFrames:
                 statesStream+=(f"\tState_{StateLoops[i][j]}:\n")
                 # Пишем спрайт и подкадр
-            if state_values.action != 'WeaponMeleeAttack':
+            #if state_values.action != 'WeaponMeleeAttack':
                 #line = f"{i} {j} {state_values.index} {state_values.nextstate}\t\t{zdoomspritenames(state_values.sprite)} {BUKVATABLE(state_values.frame & 0x7FFF)}"
-                line = f"\t\t{zdoomspritenames(state_values.sprite)} {BUKVATABLE(state_values.frame & 0x7FFF)}"
+            line = f"\t\t{zdoomspritenames(state_values.sprite)} {BUKVATABLE(state_values.frame & 0x7FFF)}"
 
-                # Сливаем подкадры с одинаковыми действиями
-                while ( 
-                    j+1 < loop_size and
-                     is_same_actions(st[StateLoops[i][j]], st[st[StateLoops[i][j]].nextstate])
-                    and st[StateLoops[i][j]].nextstate not in loopFrames
-                    and st[StateLoops[i][j]].nextstate not in specialLoopFrames
-                ):
+            # Сливаем подкадры с одинаковыми действиями
+            while ( 
+                j+1 < loop_size and
+                 is_same_actions(st[StateLoops[i][j]], st[st[StateLoops[i][j]].nextstate])
+                and st[StateLoops[i][j]].nextstate not in loopFrames
+                and st[StateLoops[i][j]].nextstate not in specialLoopFrames
+            ):
 
-                    frame_number = st[st[StateLoops[i][j]].nextstate].frame & 0x7FFF
-                    line += BUKVATABLE(frame_number)
-                    j += 1
-                    if j+1 >= loop_size:
-                        break
-                
-                # Длительность и флаг "Bright"
-                line += f" {state_values.tics}"
+                frame_number = st[st[StateLoops[i][j]].nextstate].frame & 0x7FFF
+                line += BUKVATABLE(frame_number)
+                j += 1
+                if j+1 >= loop_size:
+                    break
+            
+            # Длительность и флаг "Bright"
+            line += f" {state_values.tics}"
 
-                #bright_flag =
-                if (state_values.frame & 32768):
-                    line += " Bright"
-                frame_number = state_values.frame & 0x7FFF  # безопасное извлечение номера подкадра
-                
+            #bright_flag =
+            if (state_values.frame & 32768):
+                line += " Bright"
+            frame_number = state_values.frame & 0x7FFF  # безопасное извлечение номера подкадра
+
+                # 18:39 24.12.2025 Offset
+
+            if state_values.misc1 !=0 or state_values.misc2!=0:
+                line += f' Offset{state_values.misc1,state_values.misc2}'
 
                 # Действие
             if state_values.action:
@@ -2353,4 +2358,6 @@ print(vivod)
 #print('*/')
 #if __name__ == "__main__":
 #	main(argv[1:])
+
+#18:38 24.12.2025 todo: see states are evaluated as "0" in case of 300 lines christmas dehacked
 
