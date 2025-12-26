@@ -6,13 +6,13 @@ import copy
 from collections import defaultdict
 #from typing import List
 
-MT_CLIP = 63 + 1
-MT_SHOTGUN = 77 + 1
-MT_CHAINGUN = 73 + 1
-MT_WOLFSS = 23 + 1
-MT_POSSESSED = 1 + 1
-MT_SHOTGUY = 2 + 1
-MT_CHAINGUY = 10+ 1
+MT_CLIP = 64
+MT_SHOTGUN = 78
+MT_CHAINGUN = 74
+MT_WOLFSS = 24
+MT_POSSESSED = 2
+MT_SHOTGUY = 3
+MT_CHAINGUY = 11
 
 vivod=''
 newdecorate=''
@@ -39,7 +39,12 @@ curwepnammotype = -1
 curwepnammouse = -1
 curactor = -1
 
-
+labelStream = ''
+def labelcatcher(x):
+    global labelStream
+    labelStream += str(x)+f'in {curactor}'+'\n'
+    return 0
+    
 def BUKVATABLE(num):
     if num < 0:
         return "Invalid input: number must be non-negative"
@@ -839,7 +844,7 @@ def deh_read_blocks(lines):
         else:
             i += 1
 
-    print('deh blocks count', len(blocks))
+    print('//deh blocks count', len(blocks))
     #print(blockstream)
     return blocks
 state_kwargsstream=''            
@@ -852,7 +857,7 @@ def parse_blocks(lines, blocks):
         lineslice = lines[blockstart:blockend]
         parse_block(lineslice,blocktype2)
         parsedcount+=1
-    print('parsed blocks',parsedcount)
+    print('//parsed blocks',parsedcount)
     #print(state_kwargsstream)
 
 kwargi=50       
@@ -1178,7 +1183,7 @@ def doAction(state):
     elif action == 'RemoveFlags':
         expr = doAddFlags(args[0],args[1],0)
     elif action == 'JumpIfFlagsSet':
-        labl = labelDict.get(args[0],0)
+        labl = labelDict.get(args[0]) or labelcatcher(args[0])
         expr = doJumpIfFlags(args[0],args[1],labl)
     
     #    
@@ -1186,22 +1191,22 @@ def doAction(state):
     #
     elif action == 'JumpIfHealthBelow':
         helth = args[1]
-        labl = labelDict.get(args[0],0)
+        labl = labelDict.get(args[0]) or labelcatcher(args[0])
         expr = f'A_JumpIfHealthLower({helth},"{labl}")'
     elif action == 'JumpIfTargetInSight':
-        labl = labelDict.get(args[0],0)
+        labl = labelDict.get(args[0]) or labelcatcher(args[0])
         fov = int32tofixed(args[1])
         expr = f'A_JumpIfTargetInLOS("{labl}",{fov})'
     elif action == 'JumpIfTargetCloser':
-        labl = labelDict.get(args[0],0)
+        labl = labelDict.get(args[0]) or labelcatcher(args[0])
         dist = int32tofixed(args[1])
         expr = f'A_JumpIfCloser({dist},"{labl}")' 
     elif action == 'JumpIfTracerInSight':
-        labl = labelDict.get(args[0],0)
+        labl = labelDict.get(args[0]) or labelcatcher(args[0])
         fov = int32tofixed(args[1])
         expr = f'A_JumpIfTargetInLOS("{labl}",{fov},JLOSF_CHECKTRACER)'
     elif action == 'JumpIfTracerCloser':
-        labl = labelDict.get(args[0],0)
+        labl = labelDict.get(args[0]) or labelcatcher(args[0])
         dist = int32tofixed(args[1])
         expr = f'A_JumpIfTracerCloser({dist},"{labl}")'
     #
@@ -1262,7 +1267,7 @@ f'{beatsprseq} {state.tics} A_CustomPunch({damageexpr1}, TRUE, 0, "BulletPuff", 
     elif action == 'WeaponAlert':
         expr = 'A_AlertMonsters'
     elif action == 'WeaponJump':
-        labl = labelDict.get(args[0],0)
+        labl = labelDict.get(args[0]) or labelcatcher(args[0])
         chance = args[1]
         expr = f'A_Jump({chance},"{labl}")'
     elif action == 'ConsumeAmmo':
@@ -1307,7 +1312,7 @@ f'{beatsprseq} {state.tics} A_CustomPunch({damageexpr1}, TRUE, 0, "BulletPuff", 
     # MBF BEGIN
     #
     elif action == 'RandomJump':
-        labl = labelDict.get(misc1,0)
+        labl = labelDict.get(misc1) or labelcatcher(misc1)
         chance = misc2
         expr = f'A_Jump({chance},"{labl}")'
     elif action == 'Mushroom': #todo: missile damage dehardcode
@@ -1495,6 +1500,7 @@ def decorateStates(actor):
     tta=tt[actor.index]
     curactor = copy.deepcopy(tta)
     
+    
     protoloopFrames = [
     tta.spawnstate,
     tta.seestate,
@@ -1544,8 +1550,8 @@ def decorateStates(actor):
     #statesStream +=f'{loopFrames} {StateLoops}'
     for i in range(len(StateLoops)):
 
-        if not StateLoops[i]:
-            continue
+        #if not StateLoops[i]:
+        #    continue
         
         if i < 8:
             labelDict[loopFrames[i]]=ZDOOMTHINGSTATES[i]
@@ -1668,6 +1674,9 @@ def decorateStates(actor):
     #if actor.index==155:
     #    print(StateLoops)
     statesStream+=("\t}\n")
+    #21:58 26.12.2025
+    if curactor.index==12:
+        print('//', StateLoops, loopFrames)
     return statesStream
 
 
@@ -1807,8 +1816,8 @@ getLoop(wnold.flashstate, st0)
     #statesStream +=f'{loopFrames} {StateLoops}'
     for i in range(len(StateLoops)):
 
-        if not StateLoops[i]:
-            continue
+        #if not StateLoops[i]:
+        #    continue
         
         if i < 8+5:
             labelDict[loopFrames[i]]=ZDOOMTHINGSTATES[i]
@@ -2040,19 +2049,10 @@ def decorateActor(actor, iswepen = 0):
             
             daStream += NUM2PROPERTIES.get(i,-1)+f' {p2}\n'
 
-    
-    #19:51 26.12.2025
-    if actornew.droppeditem == 0:
-        if actorold.droppeditem == 0:
-            pass
-        else:
-            daStream += 'DropItem "None"\n'
-    else:
-        ditem = actornew.droppeditem
-        if ditem != actorold.droppeditem:
-            daStream += f'DropItem "{getActorName(ditem)}"\n'
-            #20:33 26.12.2025
-    #20:22 26.12.2025
+    #20:39 26.12.2025
+    if actornew.droppeditem != actorold.droppeditem:
+        item_name = "None" if actornew.droppeditem == 0 else getActorName(actornew.droppeditem)
+        daStream += f'DropItem "{item_name}"\n'
         
     #sounds
 
@@ -2358,7 +2358,7 @@ forDecActors()
 #print(jumppoints)
 #print(jumpEnters)
 #print(jumpOuts)
-#print(labelDict)
+print(labelDict)
 
 #print(cc)
 '''
@@ -2379,6 +2379,10 @@ for key,value in sfxAliases.items():
         vivod+='dehextra/sound'+str(key2)+' '+str(value)+'\n'
 vivod+='*/'
 print(vivod)
+if labelStream:
+    print(labelStream)
+else:
+    print("//labelsGood")
 #print('*/')
 #if __name__ == "__main__":
 #	main(argv[1:])
