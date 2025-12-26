@@ -5,6 +5,15 @@ from dataclasses import dataclass, fields
 import copy
 from collections import defaultdict
 #from typing import List
+
+MT_CLIP = 63 + 1
+MT_SHOTGUN = 77 + 1
+MT_CHAINGUN = 73 + 1
+MT_WOLFSS = 23 + 1
+MT_POSSESSED = 1 + 1
+MT_SHOTGUY = 2 + 1
+MT_CHAINGUY = 10+ 1
+
 vivod=''
 newdecorate=''
 wha = 'H:\\Compilers\\dehacked2decorate\\BaseTables\\'
@@ -1002,6 +1011,11 @@ def initbasetables():
                     tt[lptr].index = lptr
                     lptr+=1         
         fnum+=1
+
+    tt[MT_WOLFSS].droppeditem = MT_CLIP
+    tt[MT_POSSESSED].droppeditem = MT_CLIP
+    tt[MT_SHOTGUY].droppeditem = MT_SHOTGUN
+    tt[MT_CHAINGUY].droppeditem = MT_CHAINGUN
     
     for v in range(len(WEAPONTABLE)):
         w = WEAPONTABLE[v]
@@ -2026,9 +2040,19 @@ def decorateActor(actor, iswepen = 0):
             
             daStream += NUM2PROPERTIES.get(i,-1)+f' {p2}\n'
 
-    ditem = actornew.droppeditem or actorold.droppeditem
-    if ditem:
-        daStream += f'DropItem "{getActorName(ditem)}"\n'
+    
+    #19:51 26.12.2025
+    if actornew.droppeditem == 0:
+        if actorold.droppeditem == 0:
+            pass
+        else:
+            daStream += 'DropItem "None"\n'
+    else:
+        ditem = actornew.droppeditem
+        if ditem != actorold.droppeditem:
+            daStream += f'DropItem "{getActorName(ditem)}"\n'
+            #20:33 26.12.2025
+    #20:22 26.12.2025
         
     #sounds
 
