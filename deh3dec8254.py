@@ -14,6 +14,7 @@ MT_POSSESSED = 2
 MT_SHOTGUY = 3
 MT_CHAINGUY = 11
 
+hasChase = set()
 vivod=''
 newdecorate=''
 wha = 'H:\\Compilers\\dehacked2decorate\\BaseTables\\'
@@ -1154,7 +1155,13 @@ def doAction(state):
         expr = (
             f'A_AlertMonsters(0,AMF_EMITFROMTARGET)'
             )
+    elif action == 'Chase':
+        hasChase.add(curactor.index)
+        expr = (
+            f'A_Chase'
+            )
     elif action == 'HealChase':
+        hasChase.add(curactor.index)
         expr = (
             f'A_VileChase'
             )
@@ -1433,17 +1440,15 @@ def compThings():
         xdeathloop=getLoop(tt[ti].xdeathstate,st)
         raiseloop=getLoop(tt[ti].raisestate,st)
 
-
-        #if spawnloop!=getLoop(tt0[ti].spawn)
         
-        if spawnloop!=getLoop(tt0[ti].spawnstate,st0): workactor.spawnloop=spawnloop
-        if seeloop!=getLoop(tt0[ti].seestate,st0): workactor.seeloop=seeloop
-        if painloop!=getLoop(tt0[ti].painstate,st0): workactor.painloop=painloop
-        if meleeloop!=getLoop(tt0[ti].meleestate,st0): workactor.meleeloop=meleeloop
-        if missileloop!=getLoop(tt0[ti].missilestate,st0): workactor.missileloop=missileloop
-        if deathloop!=getLoop(tt0[ti].deathstate,st0): workactor.deathloop=deathloop
-        if xdeathloop!=getLoop(tt0[ti].xdeathstate,st0): workactor.xdeathloop=xdeathloop
-        if raiseloop!=getLoop(tt0[ti].raisestate,st0): workactor.raiseloop=raiseloop
+        if compareLoop(spawnloop, getLoop(tt0[ti].spawnstate,st0)): workactor.spawnloop=spawnloop
+        if compareLoop(seeloop, getLoop(tt0[ti].seestate,st0)): workactor.seeloop=seeloop
+        if compareLoop(painloop, getLoop(tt0[ti].painstate,st0)): workactor.painloop=painloop
+        if compareLoop(meleeloop, getLoop(tt0[ti].meleestate,st0)): workactor.meleeloop=meleeloop
+        if compareLoop(missileloop, getLoop(tt0[ti].missilestate,st0)): workactor.missileloop=missileloop
+        if compareLoop(deathloop, getLoop(tt0[ti].deathstate,st0)): workactor.deathloop=deathloop
+        if compareLoop(xdeathloop, getLoop(tt0[ti].xdeathstate,st0)): workactor.xdeathloop=xdeathloop
+        if compareLoop(raiseloop, getLoop(tt0[ti].raisestate,st0)): workactor.raiseloop=raiseloop
         #if workactor.
         #vivod+=f'{workactor.spawnloop}\n'
 
@@ -1730,7 +1735,8 @@ getLoop(wnold.flashstate, st0)
     
     modWeaponStateLoops =[]
     for ka in range(0,5):
-        if newWeaponStateLoops[ka]!=oldWeaponStateLoops[ka]:
+        #if newWeaponStateLoops[ka]!=oldWeaponStateLoops[ka]:
+        if compareLoop(newWeaponStateLoops[ka],oldWeaponStateLoops[ka]):
             modWeaponStateLoops.append(newWeaponStateLoops[ka])
         else:
             modWeaponStateLoops.append([])
@@ -1997,7 +2003,9 @@ NUM2WEPENPROPERTIES = {
 }
 
 def decorateActor(actor, iswepen = 0):
-    
+
+
+
     daStream = ''
     actorold = tt0[actor.index]
     actornew =  tt[actor.index]
@@ -2024,9 +2032,15 @@ def decorateActor(actor, iswepen = 0):
                 '\n\t{\n')
     
     #flags
+    #string
+    get_flags_diff_1 = get_flags_diff(actorold.flags, actornew.flags)
+    #pofactu 13:14 27.12.2025
+    get_flags_diff_1_num = actorold.flags ^ actornew.flags
+    
     flagStream = (
         actorRow+
-        get_flags_diff(actorold.flags, actornew.flags)+
+        #get_flags_diff(actorold.flags, actornew.flags)+
+        get_flags_diff_1+
         get_flags_diff(actorold.flags21, actornew.flags21,MBF21FLAGS)
         )
     if flagStream:
@@ -2053,6 +2067,13 @@ def decorateActor(actor, iswepen = 0):
     if actornew.droppeditem != actorold.droppeditem:
         item_name = "None" if actornew.droppeditem == 0 else getActorName(actornew.droppeditem)
         daStream += f'DropItem "{item_name}"\n'
+
+    #if not (get_flags_diff_1_num & 0x00400000) and actor.index in hasChase:
+    if not actornew.flags & 0x00400000 and actor.index in hasChase:
+        daStream += '+CANPUSHWALLS\n\
++ACTIVATEMCROSS\n\
++CANPASS\n\
++CANUSEWALLS\n'
         
     #sounds
 
@@ -2207,6 +2228,9 @@ def decFullActor(actor):
     temp1 = decorateStates(actor)
     if temp1 == '\tStates\n\t{\n\t}\n':
         bits -= 1
+
+    
+        
         
     temp2 = decorateActor(actor)
     aftern = temp2.find('\n')
@@ -2275,6 +2299,22 @@ def getLoop(state_value, state_array):
         if state_value in jumpOuts:
             print('Getloop: ',state_value)
     return state_loop
+
+#10:37 27.12.2025
+def compareLoop(loop_1,loop_2):
+	global st0, st
+	
+	if len(loop_1)!=len(loop_2):
+		return True
+	
+	for i, current_state in enumerate(loop_1):
+		if st0[current_state]==st[current_state]:
+			continue
+		else:
+			return True
+
+	return False
+	
 
 def detect_inner_cycle(numbers):
     # Создаем словарь, где ключи - числа, а значения - индексы
