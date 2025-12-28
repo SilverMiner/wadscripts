@@ -10,7 +10,27 @@
 #PATIENTA = "H:\Games\Doom\VAUMOD\MAPS\MAP01.WAD"
 #PATIENTA = "H:\\Games\\Doom\\BLITZ.WAD"
 #PATIENTA = "H:/Games/Doom/templeaa.wad"
-PATIENTA = "H:/Games/Doom/RMG_CITY.wad"
+#PATIENTA = "H:/Games/Doom/RMG_CITY.wad"
+#PATIENTA = "H:/Games/Doom/belot.wad"
+PATIENTA = "H:/Games/Doom/AdMortem_v1.5.6.wad"
+#PATIENTA = "H:/Games/Doom/300lnmas.wad"
+PATIENTB = "H:/Games/Doom/DOOM2.wad"
+anim_speeds = []
+SECTYPE2NAMES = {
+0:'FLR4096',
+1:'FLR4128',
+2:'FLR4160',
+3:'FLR4192'
+    }
+SECTYPE3NAMES = {
+0:'kill plr w/o prot-n',
+1:'kill plr',
+2:'kill plrs exit',
+3:'kill plrs secret'
+    }
+
+warnings = ''
+
 from sys import argv
 from omg import *
 from omg.mapedit import *
@@ -21,6 +41,10 @@ from hashlib import sha256
 #GLOBAL CONSTANTS 16:01 30.05.2025
 #STYPEMASK = 4192 #(1 << 5) | (1 << 6) | (1 << 12)
 STYPEMASK = 96
+
+anim_parsed = []
+anim_ranges = []
+anim_good = []
 
 #GLOBAL VARIABLES 14:31 30.05.2025
 mapnames = []
@@ -35,6 +59,11 @@ sitotypeglobal = {}
 
 #index to tx_floor
 sitoflatglobal = {}
+
+#17:44 28.12.2025
+#dict of dicts of si -> z_floor
+sitoheightglobal = {}
+heightglobal = {}
 
 
 #BRANCHES 18:48 30.05.2025
@@ -53,27 +82,47 @@ def findmbf21lines(map):
             print(map)
             break
 
+def problemnyj(sec):
+    da = sec.tx_floor == 'F_SKY1' and sec.type & 4096 and sec.tag == 0
+    return da
 
 def findmbf21sectors(map, name):
-    global mapsdict
+    global mapsdict, warnings
     mbf21secs = set()
     sitotype = {}
     sitoflat = {}
     chaska = {}
+    #17:32 28.12.2025
+    sitoheight = {}
+
+    #17:41 28.12.2025
+    minheight = 0x7FFF
     
+    #18:55 28.12.2025
+    #minheight for all sectors except deadly
+    #maxheight is for only deadly sectors
+    maxheight = -32768
+
     ed = MapEditor(map)
     
     for si, sec in enumerate(ed.sectors):
-        #if sec.tag!=0:
+
+        if problemnyj(sec):
+            maxheight = max(maxheight, sec.z_floor)
+            warnings += name+ f' {SECTYPE3NAMES.get((ed.sectors[si].type & 0x60) >> 5)}' + str(si) + '\n'
+        else:
+            minheight = min(minheight, sec.z_floor)
+            
+        sitoheight[si] = sec.z_floor
+        
         if sec.tag in chaska:
             chaska[sec.tag].add(sec.type)
         else:
             chaska[sec.tag] = {sec.type}
         if sec.type & 4096:
-            #mbf21secs.add((si, sec.tag))
             mbf21secs.add(si)
-            #flatsonmbf21secs.add({sec.tx_floor:sec.type & STYPEMASK})
-            #flatsonmbf21secs.add(sec.tx_floor)
+            #if (sec.type & 0x60) >> 5 < 2:
+            #    maxheight
             
         
     #no need to do this -> mbf21secs.discard(0)
@@ -102,6 +151,10 @@ def findmbf21sectors(map, name):
             sitoflat[si]=ed.sectors[si].tx_floor
             bindex.add(si)
             flatsonmbf21secs.add(ed.sectors[si].tx_floor)
+            #if ed.sectors[si].tx_floor in anim_good:
+            #    animStream += doAnimEntry(l)
+                
+            
 
     yetindices = mbf21secs - bindex
     for i3 in yetindices:
@@ -113,6 +166,8 @@ def findmbf21sectors(map, name):
     if btag: tagglobal[name] = sorted(btag)
     if sitotype: sitotypeglobal[name] = sitotype
     if sitoflat: sitoflatglobal[name] = sitoflat
+    if sitoheight: sitoheightglobal[name] = sitoheight
+    heightglobal[name] = minheight, maxheight
     
 
                 
@@ -167,9 +222,12 @@ scriptStream = (
     '}\n'
                 'script 1 {\n'
                 )
+#17:30 28.12.2025 opiszu a to ja zabyl:
+#jest localnyje slovari, a jest globalnyje
 def genFSGLOBAL():
-    global scriptStream
+    global scriptStream, warnings
     for name in mapnames:
+        heightHackNotUsed = True
         lnum = int(name[3:])
         
         
@@ -180,6 +238,10 @@ def genFSGLOBAL():
         sitoflat = sitoflatglobal.get(name, {})
 
         tagtotype = chaskaglobal.get(name, {})
+
+#17:51 28.12.2025
+        minheight, maxheight = heightglobal.get(name, {})
+        sitoheight = sitoheightglobal.get(name, {})
         
         scriptStream += (f'if (lnum=={lnum})'
                          '{\n'
@@ -187,7 +249,23 @@ def genFSGLOBAL():
         for si in bindex:
             typea = (sitotype.get(si, 0)&0x60)>>5
             flatone = sitoflat.get(si, '')
-            scriptStream += getdonebyindex(si, typea, flatone)
+            if not (typea < 2 and flatone == 'F_SKY1'):
+                scriptStream += getdonebyindex(si, typea, flatone)
+            elif flatone == 'F_SKY1' and heightHackNotUsed:
+                if maxheight<=minheight:
+                    warnings += '//' + name + ' ' + str(si) + 'deadly sky resolve\n'
+                    scriptStream += f'while(1==1)\
+{{ if (trigger.objz <= {maxheight})\
+{{\
+trigger.kill;\
+}}\
+wait(20);\
+}}\n'
+                    heightHackNotUsed = False
+                else:
+                    warnings += '//' + name + ' ' + str(si) + 'deadly sky UNRESOLVABLE\n'
+                
+            
         for tag in btag:
             typeb = (tagtotype.get(tag, 0)&0x60)>>5
             scriptStream += getdonebytag(tag, typeb)
@@ -228,12 +306,7 @@ DamageAmount 1000
 '''
     )
 
-SECTYPE2NAMES = {
-0:'FLR4096',
-1:'FLR4128',
-2:'FLR4160',
-3:'FLR4192'
-    }
+
 terrainStream = copy.deepcopy(TERRAINPROTO)
 def genTERRAIN():
     global terrainneedglobal,terrainStream
@@ -256,7 +329,9 @@ def genTEXTURES():
         
     texStream += '//TX END\n'
     print(texStream)
-    
+
+animStream = ''
+
 def funca(dicta):
     has1 = hash(dicta.keys())
     has2 = hash(dicta.values())
@@ -274,16 +349,116 @@ def funcb(x):
     has4 = hashSilver(x+'water')
     return [has1,has2,has3,has4]
 
+def parse_animated_lump(anim_lump):
+
+    records = []
+    while True:
+        record_type = anim_lump[0]
+        if record_type == 255:
+            break
+        is_flat = record_type == 0
+        is_wall_texture = record_type in [1, 3]
+
+        # Извлечение строк
+        #debil = anim_lump[1:23].split(b'\x00')
+        last_texture = anim_lump[1:10].split(b'\x00')[0].decode('utf-8')
+        first_texture = anim_lump[10:20].split(b'\x00')[0].decode('utf-8')
+        #last_texture = debil[0].decode('utf-8')
+        #first_texture = debil[1].decode('utf-8')
+
+        # Извлечение скорости анимации
+        speed = int.from_bytes(anim_lump[19:23], 'little')
+        records.append((first_texture.encode('utf-8'), last_texture.encode('utf-8'), speed))
+        anim_lump = anim_lump[23:]
+        
+    return records
+def doAnimEntry(word, wordHashed, x):
+    global anim_ranges, anim_good, anim_speeds
+
+    simple_list = [item for tup in anim_ranges for item in tup]
+    #vid: str, str, int
+    #print('simple_list', simple_list)
+    entryStream = f'flat optional {wordHashed}\n'
+
+    speed = anim_speeds[x]
+
+    seekForPart = False
+    memorizeWhere = 0
+    whereInGood = 0
+    waitForIf = False
+    
+    for i,anim in enumerate(anim_good[x:]):
+        if anim == word:
+            seekForPart = True
+            waitForIf = True
+        else:
+            waitForIf = False
+        if seekForPart:
+            entryStream += f'pic {anim} tics {speed}\n'
+            
+            if waitForIf == False and anim in simple_list:
+                memorizeWhere = simple_list.index(anim) - 1
+                whereInGood = i
+                break
+            
+    whok = simple_list[memorizeWhere]
+
+    foundLeftPart = False
+    for i,anim in enumerate(anim_good):
+        if anim == word:
+            break
+        if anim == whok:
+            foundLeftPart = True
+        if foundLeftPart:
+            entryStream += f'pic {anim} tics {speed}\n'
+            
+    return entryStream
+    
+
 def main(args):
-    global pattern,mode,scriptStream,terrainflats,terrainneedglobal
+    global pattern,mode,scriptStream,terrainflats,terrainneedglobal,anim_good,anim_ranges,animStream,anim_speeds
     inwad = WAD()
-    #outwad = WAD()    
+    #outwad = WAD()
+	#0:45 28.12.2025
+	
     if (len(args) < 2):
         inwad.from_file(PATIENTA)
     else:
         #print ("Loading %s..." % args[0])
         inwad.from_file(PATIENTA)
         
+    isIwadAvailable = False
+    try:
+        iwad = WAD()
+        iwad.from_file(PATIENTB)
+        isIwadAvailable = True
+    except Exception:
+        print('guga')
+
+    iwadflatlist=list(iwad.flats)
+    pwadflatlist=iwadflatlist+list(inwad.flats)
+    anim_lump = inwad.data['ANIMATED'].data
+    anim_parsed = parse_animated_lump(anim_lump)
+    anim_ranges = [(start.decode('ascii'), end.decode('ascii'), speed) for start, end, speed in anim_parsed]
+    #print(anim_ranges)
+
+    
+
+    for start_name, end_name, sped in anim_ranges:
+        try:
+            start_idx = pwadflatlist.index(start_name)
+            end_idx = pwadflatlist.index(end_name)
+            
+            # Добавляем все элементы между start_idx и end_idx включительно
+            anim_good.extend(pwadflatlist[start_idx:end_idx + 1])
+            anim_speeds.extend([sped] * (end_idx - start_idx + 1))
+        except ValueError:
+            # Если какого-то из элементов нет в списке, пропускаем
+            continue
+
+    # Убираем дубликаты, если диапазоны пересекаются
+    #anim_good = list(dict.fromkeys(anim_good))
+
     if (len(args) >= 3):
             for arg in args[2:]:
                     if arg in mode_map:
@@ -298,10 +473,12 @@ def main(args):
     #print(chaskaglobal)
     
     #tx_floor to set of 4 terrain flats dict
-    terrainflats = {
-    word: funcb(word)
-    for word in flatsonmbf21secs
-    }
+
+    for word in flatsonmbf21secs:
+        wordHashedList = funcb(word)
+        terrainflats[word] = wordHashedList
+
+    
     #print(terrainflats)
 
     #print(indexglobal,tagglobal)
@@ -309,6 +486,19 @@ def main(args):
     genFSGLOBAL()
     genTERRAIN()
     genTEXTURES()
+    #genANIMDEFS()
+
+    for word in flatsonmbf21secs:
+        wordHashedList = funcb(word)
+        if word in anim_good:
+            gugh = anim_good.index(word)
+            for wordHashed in wordHashedList:
+                if wordHashed in terrainneedset:
+                    animStream += doAnimEntry(word, wordHashed, gugh)
+    
+    print(warnings)
+    if animStream:
+        print('//ANIMDEFS BEGIN\n',animStream,'//ANIMDEFS END\n',sep='\n')
     
 
 if __name__ == "__main__":
