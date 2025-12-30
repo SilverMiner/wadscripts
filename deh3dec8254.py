@@ -1390,7 +1390,36 @@ def deh_read_frames(lines):
                         healchaseOuts.append(st[frameIndex].args[0])
                 elif frameAction == 'RandomJump':
                     jumppoints.append(jumppoint_t(frameIndex, st[frameIndex].misc1))
-                    
+                #elif frameAction == 'FirePlasma':
+                #    jumppoints.append(jumppoint_t(frameIndex, st[frameIndex].misc1))
+            if frameAction == 'FirePlasma':
+                fireplaswepens = findFlash(frameIndex)
+                if not fireplaswepens:
+                    print(f'//{frameIndex} w/o fplswn!')
+                for wepe in fireplaswepens:
+                    wfstt = wepe.flashstate
+                    jumppoints.append(jumppoint_t(
+                        #frameIndex, wepe.flashstate + 1
+                        wfstt, wfstt + 1
+                        ))
+                
+                
+def findFlash(x):
+    #input - fireplasma state
+    #output - list of (wepen_i, flashstate_i) corteges
+    #or just only a wepen
+    #12:55 30.12.2025
+    #vosczem-to spisok wepenov
+    daflashstart = -1
+    fplsWepens = []
+    for wepe in wt:
+        for i, lupa in enumerate([wepe.upstate, wepe.downstate, wepe.readystate, wepe.atkstate, wepe.flashstate]):
+            curaloop = getLoop(lupa, st)
+            if x in curaloop:
+                fplsWepens.append(wepe)
+    return fplsWepens
+                
+                
 
 def compnmod():
     modtracker = []
@@ -1621,6 +1650,7 @@ def decorateStates(actor):
                      is_same_actions(st[StateLoops[i][j]], st[st[StateLoops[i][j]].nextstate])
                     and st[StateLoops[i][j]].nextstate not in loopFrames
                     and st[StateLoops[i][j]].nextstate not in specialLoopFrames
+                    #and st[StateLoops[i][j]].nextstate != 1
                 ):
 
                     frame_number = st[st[StateLoops[i][j]].nextstate].frame & 0x7FFF
@@ -1659,9 +1689,10 @@ def decorateStates(actor):
 
         standard_state = isInSet(last_state, loopFrames)
         special_state = isInSet(last_state, specialLoopFrames)
-
         if last_state == 0:
             statesStream+=("\t\tstop\n")
+        elif last_state == 1:
+            statesStream+=("\t\tgoto LightDone\n")
         elif standard_state != -1:
             if i == standard_state:
                 statesStream+=(f"\t\tloop\n")
@@ -1933,6 +1964,8 @@ getLoop(wnold.flashstate, st0)
 
         if last_state == 0:
             statesStream+=("\t\tstop\n")
+        elif last_state == 1:
+            statesStream+=("\t\tgoto LightDone\n")
         elif standard_state != -1:
             if i == standard_state:
                 statesStream+=(f"\t\tloop\n")
@@ -2289,7 +2322,7 @@ def getLoop(state_value, state_array):
 
         # Проверяем, является ли текущее состояние концом (повтор или 0)
         for prev_state in state_loop:
-            if current_state == prev_state or current_state == 0:
+            if current_state == prev_state or current_state == 0 or current_state == 1:
                 # Добавляем финальное состояние и завершаем
                 state_loop.append(current_state)
                 complete = True
