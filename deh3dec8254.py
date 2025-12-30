@@ -13,7 +13,8 @@ MT_WOLFSS = 24
 MT_POSSESSED = 2
 MT_SHOTGUY = 3
 MT_CHAINGUY = 11
-
+#THELOOPS = ['spawnloop','seeloop', 'painloop', 'meleeloop', 'missileloop', 'deathloop', 'xdeathloop', 'raiseloop']
+THELOOPS = ['spawn','see', 'pain', 'melee', 'missile', 'death', 'xdeath', 'raise']
 hasChase = set()
 vivod=''
 newdecorate=''
@@ -1460,26 +1461,14 @@ def compThings():
 #2. Check loops
         ourstateflags=0
 
-        spawnloop=getLoop(tt[ti].spawnstate,st)
-        seeloop=getLoop(tt[ti].seestate,st)
-        painloop=getLoop(tt[ti].painstate,st)
-        meleeloop=getLoop(tt[ti].meleestate,st)
-        missileloop=getLoop(tt[ti].missilestate,st)
-        deathloop=getLoop(tt[ti].deathstate,st)
-        xdeathloop=getLoop(tt[ti].xdeathstate,st)
-        raiseloop=getLoop(tt[ti].raisestate,st)
-
-        
-        if compareLoop(spawnloop, getLoop(tt0[ti].spawnstate,st0)): workactor.spawnloop=spawnloop
-        if compareLoop(seeloop, getLoop(tt0[ti].seestate,st0)): workactor.seeloop=seeloop
-        if compareLoop(painloop, getLoop(tt0[ti].painstate,st0)): workactor.painloop=painloop
-        if compareLoop(meleeloop, getLoop(tt0[ti].meleestate,st0)): workactor.meleeloop=meleeloop
-        if compareLoop(missileloop, getLoop(tt0[ti].missilestate,st0)): workactor.missileloop=missileloop
-        if compareLoop(deathloop, getLoop(tt0[ti].deathstate,st0)): workactor.deathloop=deathloop
-        if compareLoop(xdeathloop, getLoop(tt0[ti].xdeathstate,st0)): workactor.xdeathloop=xdeathloop
-        if compareLoop(raiseloop, getLoop(tt0[ti].raisestate,st0)): workactor.raiseloop=raiseloop
-        #if workactor.
-        #vivod+=f'{workactor.spawnloop}\n'
+        for loop_name in THELOOPS:
+            state_name = loop_name + 'state'
+            loop_name2 = loop_name + 'loop'
+            state_valold = getattr(tt0[ti], state_name)
+            state_valnew = getattr(tt[ti],  state_name)
+            loop_new = getLoop(state_valnew,st)
+            if compareLoop(loop_new, getLoop(state_valold,st0)) or state_valold!=state_valnew:
+                setattr(workactor, loop_name2, loop_new)
 
 #3. Check if our actor is not empty.
         if workactor != emptyguy:
@@ -1711,7 +1700,7 @@ def decorateStates(actor):
     #    print(StateLoops)
     statesStream+=("\t}\n")
     #21:58 26.12.2025
-    if curactor.index==12:
+    if curactor.index in [12,24]:
         print('//', StateLoops, loopFrames)
     return statesStream
 
@@ -2331,11 +2320,16 @@ def getLoop(state_value, state_array):
     if 0 or not state_loop:
         if state_value in jumpOuts:
             print('Getloop: ',state_value)
+
+    if state_value == 442:
+        print('//dubuga guga ', state_loop)
     return state_loop
 
 #10:37 27.12.2025
 def compareLoop(loop_1,loop_2):
 	global st0, st
+	if curactor == 24 or loop_1 == 442:
+		print('//cmploop',loop_1, loop_2)
 	
 	if len(loop_1)!=len(loop_2):
 		return True
