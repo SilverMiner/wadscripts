@@ -28,10 +28,10 @@ wha = 'H:\\Compilers\\dehacked2decorate\\BaseTables\\'
 #patient = "H:/Games/Doom/dbp50stalk17.bex"
 #patient = "H:/Games/Doom/DEHACKEDadmortem.txt"
 #patient = "H:/Games/Doom/DEHACKEDnt2fv5.txt"
-patient = "H:/Games/Doom/DEHACKEDSNOWBALL INSANITY [WINNKAR].txt"
+#patient = "H:/Games/Doom/DEHACKEDSNOWBALL INSANITY [WINNKAR].txt"
 #patient = "H:/Games/Doom/DEHACKEDnt2fv5.txt"
 #patient = "H:/Games/Doom/DEHACKEDid1.txt"
-#patient = "H:/Games/Doom/nt2fRC1texts/DEHACKED.txt"
+patient = "H:/Games/Doom/nt2fRC1texts/DEHACKED.txt"
 files = ['base_states2.dat','base_things.dat']
 labelDict = {}
 
@@ -1407,7 +1407,7 @@ f'FireEnd{si}:\n'
 )
         else:
             expr = (
-f'{beatsprseq} {state.tics} A_CustomPunch({damageexpr1}, TRUE, 0, "BulletPuff", {rangee}, 0,0,"ArmorBonus", "{sound}")\n'
+f'A_CustomPunch({damageexpr1}, TRUE, 0, "BulletPuff", {rangee}, 0,0,"ArmorBonus", "{sound}")\n'
                 )
     elif action == 'WeaponAlert':
         expr = 'A_AlertMonsters'
