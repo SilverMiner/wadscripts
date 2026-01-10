@@ -5,7 +5,12 @@ from typing import Optional, List, Tuple
 from enum import IntEnum
 import copy, os
 
-PATIENT = "H:/Games/Doom/UMAPINFO300lnmas.txt"
+#0:36 11.01.2026 todo:
+#na karte 22 v nt2f juzajetsa boomovskij ekszon
+#nado i takije umet chendlit
+
+#PATIENT = "H:/Games/Doom/UMAPINFO300lnmas.txt"
+PATIENT = "H:/Games/Doom/nt2fRC1texts/UMAPINFO.txt"
 
 # глобальный буфер, в который будет складываться весь вывод
 vivod = []
@@ -126,6 +131,9 @@ class level_t(ourbase_t):
     #19:58 09.01.2026 cluster
     cluster: int = 0
 
+    #23:09 10.01.2026
+    translator: str = ""
+
     _parsed_fields: set = field(default_factory=set, init=False, compare=False, repr=False)
 
     def set_field_value(self, field_name, value):
@@ -161,10 +169,10 @@ def doClusters():
             print2(f'music = {cluster.music}')
 
         if cluster.exit:
-            print2(f'exittext = {cluster.exit}')
+            print2(f'exittext = "{cluster.exit}"')
 
         if cluster.enter:
-            print2(f'entertext = {cluster.enter}')
+            print2(f'entertext = "{cluster.enter}"')
         
         print2('}')  # FIXED: Moved closing brace to its own line after all properties
         
@@ -195,7 +203,300 @@ def doInters():
         
         
         
+#0:49 11.01.2026    
+def is_boom_generalized(special_num):
+    """
+    Проверяет, является ли номер спешла BOOM generalized linedef.
+    """
+    return special_num >= 0x2F80  # GenCrusherBase
+
+def translate_boom_generalized_to_hexen(special_num, tag=0, flags=0):
+#def decode_boom_generalized(special_num, tag=0, flags=0):
+    """
+    Декодирует BOOM generalized linedef в Hexen-формат.
+    Возвращает словарь с результатом или None, если не generalized.
+    """
+    # Определяем диапазоны (в десятичной системе!)
+    GEN_CRUSHER_BASE = 0x2F80    # 12160
+    GEN_STAIRS_BASE = 0x3000     # 12288  
+    GEN_LIFT_BASE = 0x3400       # 13312
+    GEN_LOCKED_BASE = 0x3800     # 14336
+    GEN_DOOR_BASE = 0x3C00       # 15360
+    GEN_CEILING_BASE = 0x4000    # 16384
+    GEN_FLOOR_BASE = 0x6000      # 24576
     
+    # Проверяем, является ли generalized
+    if special_num < GEN_CRUSHER_BASE:
+        return None  # Не generalized linedef
+    
+    result = {
+        'special': 0,
+        'args': [0, 0, 0, 0, 0],
+        'flags': flags & 0x01FF,  # Очищаем activation flags
+        'tag_used': False
+    }
+    
+    # Определяем триггерный тип
+    trigger_type = special_num & 0x0007
+    
+    # Устанавливаем флаги активации (как в C-коде)
+    if trigger_type in [0, 1]:  # WalkOnce (0), WalkMany (1)
+        result['flags'] |= 0x0000  # ML_ACTIVATECROSS
+        if trigger_type == 1:  # WalkMany
+            result['flags'] |= 0x0200  # ML_REPEATABLE
+    elif trigger_type in [2, 3]:  # SwitchOnce (2), SwitchMany (3)
+        if special_num & 0x0200:  # ML_PASSUSEORG из C-кода
+            result['flags'] |= 0x1800  # ML_ACTIVATEUSETHROUGH
+        else:
+            result['flags'] |= 0x0400  # ML_ACTIVATEUSE
+        if trigger_type == 3:  # SwitchMany
+            result['flags'] |= 0x0200  # ML_REPEATABLE
+    elif trigger_type in [4, 5]:  # PushOnce (4), PushMany (5)
+        result['flags'] |= 0x1000  # ML_ACTIVATEPUSH
+        if trigger_type == 5:  # PushMany
+            result['flags'] |= 0x0200  # ML_REPEATABLE
+    elif trigger_type in [6, 7]:  # GunOnce (6), GunMany (7)
+        result['flags'] |= 0x0C00  # ML_ACTIVATEPROJECTILEHIT
+        if trigger_type == 7:  # GunMany
+            result['flags'] |= 0x0200  # ML_REPEATABLE
+    
+    # Для push-триггеров тег не используется (как в C-коде)
+    if trigger_type in [4, 5]:  # Push triggers
+        result['args'][0] = 0
+    else:
+        result['args'][0] = tag
+        result['tag_used'] = True
+    
+    # Определяем конкретный тип по диапазонам
+    if special_num <= GEN_CRUSHER_BASE:
+        # Generalized crusher (tag, dnspeed, upspeed, silent, damage)
+        result['special'] = LineSpecial.Generic_Crusher.value
+        
+        if special_num & 0x0020:
+            result['flags'] |= 0x2000  # ML_MONSTERSCANACTIVATE
+        
+        # Скорость
+        speed_bits = (special_num & 0x0018) >> 3
+        if speed_bits == 0:
+            speed = 8  # C_SLOW
+        elif speed_bits == 1:
+            speed = 16  # C_NORMAL
+        elif speed_bits == 2:
+            speed = 32  # C_FAST
+        else:
+            speed = 64  # C_TURBO
+        
+        result['args'][1] = speed  # down speed
+        result['args'][2] = speed  # up speed
+        result['args'][3] = (special_num & 0x0040) >> 6  # silent flag
+        result['args'][4] = 10  # damage
+        
+    elif special_num <= GEN_STAIRS_BASE:
+        # Generalized stairs (tag, speed, step, dir/igntxt, reset)
+        result['special'] = LineSpecial.Generic_Stairs.value
+        
+        if special_num & 0x0020:
+            result['flags'] |= 0x2000  # ML_MONSTERSCANACTIVATE
+        
+        # Скорость
+        speed_bits = (special_num & 0x0018) >> 3
+        if speed_bits == 0:
+            speed = 2  # S_SLOW
+        elif speed_bits == 1:
+            speed = 4  # S_NORMAL
+        elif speed_bits == 2:
+            speed = 16  # S_FAST
+        else:
+            speed = 32  # S_TURBO
+        
+        # Высота ступени
+        step_bits = (special_num & 0x00C0) >> 6
+        if step_bits == 0:
+            step = 4
+        elif step_bits == 1:
+            step = 8
+        elif step_bits == 2:
+            step = 16
+        else:
+            step = 24
+        
+        result['args'][1] = speed
+        result['args'][2] = step
+        result['args'][3] = (special_num & 0x0300) >> 8  # direction/ignore texture
+        result['args'][4] = 0  # reset
+        
+    elif special_num <= GEN_LIFT_BASE:
+        # Generalized lift (tag, speed, delay, target, height)
+        result['special'] = LineSpecial.Generic_Lift.value
+        
+        if special_num & 0x0020:
+            result['flags'] |= 0x2000  # ML_MONSTERSCANACTIVATE
+        
+        # Скорость
+        speed_bits = (special_num & 0x0018) >> 3
+        if speed_bits == 0:
+            speed = 16  # P_SLOW*2
+        elif speed_bits == 1:
+            speed = 32  # P_NORMAL*2
+        elif speed_bits == 2:
+            speed = 64  # P_FAST*2
+        else:
+            speed = 128  # P_TURBO*2
+        
+        # Задержка
+        delay_bits = (special_num & 0x00C0) >> 6
+        if delay_bits == 0:
+            delay = 8
+        elif delay_bits == 1:
+            delay = 24
+        elif delay_bits == 2:
+            delay = 40
+        else:
+            delay = 80
+        
+        result['args'][1] = speed
+        result['args'][2] = delay
+        result['args'][3] = ((special_num & 0x0300) >> 8) + 1  # target
+        result['args'][4] = 0  # height
+        
+    elif special_num <= GEN_LOCKED_BASE:
+        # Generalized locked door (tag, speed, kind, delay, lock)
+        result['special'] = LineSpecial.Generic_Door.value
+        
+        if special_num & 0x0080:
+            result['flags'] |= 0x2000  # ML_MONSTERSCANACTIVATE
+        
+        # Скорость
+        speed_bits = (special_num & 0x0018) >> 3
+        if speed_bits == 0:
+            speed = 16  # D_SLOW
+        elif speed_bits == 1:
+            speed = 32  # D_NORMAL
+        elif speed_bits == 2:
+            speed = 64  # D_FAST
+        else:
+            speed = 128  # D_TURBO
+        
+        result['args'][1] = speed
+        result['args'][2] = (special_num & 0x0020) >> 5  # kind
+        result['args'][3] = 0  # delay
+        
+        # Тип ключа (как в C-коде)
+        lock_bits = (special_num & 0x01C0) >> 6
+        if lock_bits == 0:
+            key = 100  # AnyKey
+        elif lock_bits == 7:
+            key = 101  # AllKeys
+        else:
+            key = lock_bits
+        
+        # Флаг карты/черепа
+        if special_num & 0x0200:
+            key |= 128  # CardIsSkull
+        
+        result['args'][4] = key
+        
+    elif special_num <= GEN_DOOR_BASE:
+        # Generalized door (tag, speed, kind, delay, lock)
+        result['special'] = LineSpecial.Generic_Door.value
+        
+        # Скорость
+        speed_bits = (special_num & 0x0018) >> 3
+        if speed_bits == 0:
+            speed = 16  # D_SLOW
+        elif speed_bits == 1:
+            speed = 32  # D_NORMAL
+        elif speed_bits == 2:
+            speed = 64  # D_FAST
+        else:
+            speed = 128  # D_TURBO
+        
+        result['args'][1] = speed
+        result['args'][2] = (special_num & 0x0060) >> 5  # kind
+        
+        # Задержка
+        delay_bits = (special_num & 0x0300) >> 8
+        if delay_bits == 0:
+            delay = 8
+        elif delay_bits == 1:
+            delay = 32
+        elif delay_bits == 2:
+            delay = 72
+        else:
+            delay = 240
+        
+        result['args'][3] = delay
+        result['args'][4] = 0  # no lock
+        
+    elif special_num <= GEN_CEILING_BASE:
+        # Generalized ceiling (tag, speed, height, target, change/model/direct/crush)
+        result['special'] = LineSpecial.Generic_Ceiling.value
+        
+        # Скорость
+        speed_bits = (special_num & 0x0018) >> 3
+        if speed_bits == 0:
+            speed = 8  # F_SLOW
+        elif speed_bits == 1:
+            speed = 16  # F_NORMAL
+        elif speed_bits == 2:
+            speed = 32  # F_FAST
+        else:
+            speed = 64  # F_TURBO
+        
+        # Цель (target)
+        target = ((special_num & 0x0380) >> 7) + 1
+        
+        if target >= 7:
+            height = 24 + (target - 7) * 8
+            target = 0
+        else:
+            height = 0
+        
+        # Флаги изменения/модели/направления
+        change_flags = ((special_num & 0x0C00) >> 10) | \
+                      ((special_num & 0x0060) >> 3) | \
+                      ((special_num & 0x1000) >> 8)
+        
+        result['args'][1] = speed
+        result['args'][2] = height
+        result['args'][3] = target
+        result['args'][4] = change_flags
+        
+    else:  # special_num <= GEN_FLOOR_BASE (но фактически всё что >= 0x6000)
+        # Generalized floor (tag, speed, height, target, change/model/direct/crush)
+        result['special'] = LineSpecial.Generic_Floor.value
+        
+        # Скорость
+        speed_bits = (special_num & 0x0018) >> 3
+        if speed_bits == 0:
+            speed = 8  # F_SLOW
+        elif speed_bits == 1:
+            speed = 16  # F_NORMAL
+        elif speed_bits == 2:
+            speed = 32  # F_FAST
+        else:
+            speed = 64  # F_TURBO
+        
+        # Цель (target)
+        target = ((special_num & 0x0380) >> 7) + 1
+        
+        if target >= 7:
+            height = 24 + (target - 7) * 8
+            target = 0
+        else:
+            height = 0
+        
+        # Флаги изменения/модели/направления
+        change_flags = ((special_num & 0x0C00) >> 10) | \
+                      ((special_num & 0x0060) >> 3) | \
+                      ((special_num & 0x1000) >> 8)
+        
+        result['args'][1] = speed
+        result['args'][2] = height
+        result['args'][3] = target
+        result['args'][4] = change_flags
+    
+    return result
 
 #21:51 07.01.2026
 #x это будет короче это как его мммм блять аааа ну вощем
@@ -369,6 +670,13 @@ class LineSpecial(IntEnum):
     Ceiling_LowerToFloor = 254
     Ceiling_CrushRaiseAndStaySilA = 255
 
+#1:00 11.01.2026
+    # Функция для получения имени по номеру
+def get_line_special_name(number: int) -> str:
+    try:
+        return LineSpecial(number).name
+    except ValueError:
+        return f"Unknown line special: {number}"
 
 # Определение флагов активации
 class ActivationFlags:
@@ -1761,23 +2069,71 @@ SpecialTranslation = [
     TranslatedSpecial(ActivationFlags.SHOOT | ActivationFlags.REP,
                      LineSpecial.Floor_RaiseByValue, 3, [TAG, F_SLOW, 2])
 ]
+def simple_convert_generalized(result_dict):
+    """
+    Упрощенная конверсия для использования в simple_translate_doom_to_hexen
+    """
+    # Берем флаги как есть
+    flags = 0
+    
+    # Определяем флаги активации из строковых флагов
+    line_flags = result_dict['flags']
+    
+    # Простая конвертация
+    if line_flags & 0x0200:  # REPEATABLE
+        flags |= ActivationFlags.REP
+    if line_flags & 0x2000:  # MONSTERSCANACTIVATE
+        flags |= ActivationFlags.MONST
+    
+    # Для линий обычно есть WALK флаг, если нет других триггеров
+    if not (line_flags & 0x0400) and not (line_flags & 0x0C00) and not (line_flags & 0x1000):
+        flags |= ActivationFlags.WALK
+    
+    newspecial = result_dict['special']
+    args = result_dict['args']
+    
+    # Убираем нули в конце
+    numparms = 0
+    for i in range(len(args)):
+        if args[i] != 0:
+            numparms = i + 1
+    
+    # Если есть реальные аргументы, сохраняем их
+    clean_args = args[:numparms] if numparms > 0 else []
+    
+    return TranslatedSpecial(flags=flags, newspecial=newspecial, 
+                            numparms=numparms, args=clean_args)
 
 def simple_translate_doom_to_hexen(doom_special: int, doom_tag: int = 0) -> str:
     """
     Упрощенная версия - только строковый вывод.
     """
-    if doom_special < 0 or doom_special >= len(SpecialTranslation):
+    #if not (doom_special >= 0 and doom_special <= len(SpecialTranslation)):
+        
+    #if (doom_special >=12160 and <= 32767):
+    if not (
+        (doom_special >= 0 and doom_special <= len(SpecialTranslation))
+            or (doom_special >=12160 and doom_special <= 32767)
+        ):
         return f"ERROR, {doom_tag}, 0, 0, 0, 0"
+
+    if doom_special >= 0 and doom_special <= len(SpecialTranslation):
+        translation = SpecialTranslation[doom_special]
+    else:
+        translation = translate_boom_generalized_to_hexen(doom_special, doom_tag, 0)
+        print(translation)
+        translation = simple_convert_generalized(translation)
+    print(translation)
     
-    translation = SpecialTranslation[doom_special]
-    
+    #print(repr(translation), repr(simple_convert_generalized(translation)))
     # Подготавливаем аргументы
     args = [0] * 5
-    
+
+    #if doom_special >= 0 and doom_special <= len(SpecialTranslation):
     for i in range(min(translation.numparms, 5)):
-        if translation.args[i] == TAG:
+        if translation.args[i] == TAG and doom_special >= 0 and doom_special <= len(SpecialTranslation):
             args[i] = doom_tag
-        elif translation.args[i] == LINETAG:
+        elif translation.args[i] == LINETAG and doom_special >= 0 and doom_special <= len(SpecialTranslation):
             args[i] = doom_tag
         else:
             args[i] = translation.args[i]
@@ -2157,7 +2513,7 @@ def parse_levels_robust(filename):
                 newcluster.flat = level.interbackdrop or 'FLOOR4_8'
                 newcluster.exit = level.intertext or level.intertextsecret
                 if level.intermusic:
-                    newcluster.music = intermusic
+                    newcluster.music = level.intermusic
 
                 clusterdict[clustertemp] = newcluster
                 level.cluster = clustertemp
@@ -2172,18 +2528,8 @@ def parse_levels_robust(filename):
                 newinter = ending_t()
                 newinter.textscreen = textscreen
                 newinter.endkok = level.endkok
-                
-                
                 interdict[clustertemp] = newinter
-            
-            
-                
-            
-            
 
-            
-                
-            
             # Добавляем уровень в словарь
             level_dict[map_name] = level
         else:
@@ -2366,7 +2712,7 @@ def main():
         print2(f"Ошибка при обработке файла: {e}")
         import traceback
         traceback.print_exc()
-        
+    print2('defaultmap\n{\ntranslator = dehsupp\n}\n')    
     reflect_umapinfo2(level_dict)
     #print(*vivod)
     print(''.join(vivod))
