@@ -9,6 +9,57 @@ PATIENT = "H:/Games/Doom/UMAPINFO300lnmas.txt"
 
 # глобальный буфер, в который будет складываться весь вывод
 vivod = []
+#clusterset = set()
+clusterdict = {}
+interdict = {}
+def extract_digits(text):
+    """Оставляет только цифры от строки из букв и цифр"""
+    return ''.join(char for char in text if char.isdigit())
+
+def increment_string_suffix(text):
+    """
+    Делит строку на буквенную часть и числовой суффикс,
+    увеличивает число на 1 и объединяет обратно.
+    """
+    # Ищем индекс, с которого начинаются цифры с конца строки
+    i = len(text)
+    while i > 0 and text[i-1].isdigit():
+        i -= 1
+    
+    # Разделяем строку
+    left_part = text[:i]  # буквенная часть
+    right_part = text[i:]  # числовая часть
+    
+    # Если числовой части нет, добавляем "1"
+    if right_part == "":
+        return left_part + "1"
+    
+    # Преобразуем правую часть в число, увеличиваем на 1
+    # и сохраняем с тем же количеством нулей в начале (если были)
+    num = int(right_part)
+    new_num = num + 1
+    
+    # Сохраняем ведущие нули
+    if right_part.startswith('0'):
+        # Вычисляем новую длину с учетом ведущих нулей
+        new_right_part = str(new_num).zfill(len(right_part))
+        # Если число стало длиннее, обрезаем ведущие нули
+        if len(new_right_part) > len(right_part):
+            new_right_part = str(new_num)
+    else:
+        new_right_part = str(new_num)
+    
+    return left_part + new_right_part
+
+def make_counter(start: int = 0):
+    current = start
+
+    def _next() -> int:
+        nonlocal current
+        current += 1
+        return current
+
+    return _next
 
 def print2(*args, sep=' ', end='\n', file=None, flush=False):
     """
@@ -19,7 +70,6 @@ def print2(*args, sep=' ', end='\n', file=None, flush=False):
     output = sep.join(str(a) for a in args) + end
     # Добавляем её в буфер
     vivod.append(output)
-    
 @dataclass
 class ourbase_t:
     index: int = 0
@@ -34,13 +84,22 @@ class ourbase_t:
         
     def __len__(self):
         return len(fields(self))
+@dataclass
+class cluster_t(ourbase_t):
+    flat: str = "FLOOR4_8"
+    music: str = ""
+    exit: str = ""
+    enter: str = ""
 
 @dataclass
-class guga2_t(ourbase_t):
-    a: str = ""
-    b: str = ""
-    c: str = ""
+class ending_t(ourbase_t):
+    textscreen: cluster_t() = None
+    endkok: str = ""
 
+    #13:30 10.01.2026
+    #jesli endkok ne '$CAST' ne '$BUNNY' i ne '!', to ne linkujem
+    #a prosto Image{Background='<endpic>'}
+    
 @dataclass
 class level_t(ourbase_t):
     levelname: str = ""
@@ -56,12 +115,16 @@ class level_t(ourbase_t):
     partime: int = 0
     endkok: str = ""
     nointermission: Optional[bool] = None
-    intertext: str = ""
-    intertextsecret: str = ""
+    #intertext: Optional[str] = None #str = ""
+    #intertextsecret: Optional[str] = None
+    intertext:str = ""
+    intertextsecret:str = ""
     interbackdrop: str = ""
     intermusic: str = ""
     episode: List[Tuple[str, str, str]] = field(default_factory=list)
     bossaction: List[Tuple[str, int, int]] = field(default_factory=list)
+    #19:58 09.01.2026 cluster
+    cluster: int = 0
 
     _parsed_fields: set = field(default_factory=set, init=False, compare=False, repr=False)
 
@@ -70,11 +133,69 @@ class level_t(ourbase_t):
         setattr(self, field_name, value)
         self._parsed_fields.add(field_name)
 
+    def add_bossaction(self, actor, special, tag):
+        """Добавляет действие босса к уровню"""
+        self.set_field_value('bossaction', self.bossaction + [(actor, special, tag)])
+
 UM2MIDICT = {
     'levelpic':'titlepatch',
     'nextsecret':'secret',
     'skytexture':'skybox'
     }    
+
+#doClusters 20:21 10.01.2026
+def isFlat(x):
+    
+    return True
+def doClusters():
+    #flat/pic, music, entertext/exittext
+    for clusternum, cluster in clusterdict.items():  # FIXED: Added .items()
+        print2(f'cluster {clusternum} {{')
+        
+        if isFlat(cluster.flat):
+            print2(f'flat = {cluster.flat}')
+        else:
+            print2(f'pic = {cluster.flat}')
+
+        if cluster.music:
+            print2(f'music = {cluster.music}')
+
+        if cluster.exit:
+            print2(f'exittext = {cluster.exit}')
+
+        if cluster.enter:
+            print2(f'entertext = {cluster.enter}')
+        
+        print2('}')  # FIXED: Moved closing brace to its own line after all properties
+        
+def doInters():
+    for internum, inter in interdict.items():
+        #print2(f'Intermission {internum, inter}')
+        print2(f'Intermission vauinter_{internum}{{')
+        if inter.textscreen:
+            it = inter.textscreen
+            print2('Textscreen {')
+            if it.flat:
+                print2(f'Background = "{it.flat}", 1')
+            if it.music:
+                print2(f'Music = "{it.music}"')
+            kok2 = it.exit or it.enter
+            if kok2:
+                print2(f'Text = "{kok2}"')
+            print2('}')
+        if inter.endkok == '$BUNNY':
+            print2('Link = Inter_Bunny')
+        elif inter.endkok == '$CAST':
+            print2('Link = Inter_Cast')
+        elif inter.endkok == '!':
+            print2('Link = Inter_Pic3')
+        elif inter.endkok:
+            print2(f'Image {{ Background = {inter.endkok} }}')
+        print2('}') 
+        
+        
+        
+    
 
 #21:51 07.01.2026
 #x это будет короче это как его мммм блять аааа ну вощем
@@ -1678,7 +1799,7 @@ def simple_translate_doom_to_hexen(doom_special: int, doom_tag: int = 0) -> str:
             result.append(str(args[i]))
         else:
             result.append("0")
-
+    
     while result and result[-1] == "0":
         result.pop()          # удаляем последний элемент, пока он "0"
     
@@ -1686,9 +1807,11 @@ def simple_translate_doom_to_hexen(doom_special: int, doom_tag: int = 0) -> str:
 
     
     
-
+EPISMAS = []
 def parse_levels_robust(filename):
     """Парсер для блоков MAP с поддержкой многострочных значений"""
+    global EPISMAS
+    clusterkok = make_counter()
     level_dict = {}
     
     with open(filename, 'r', encoding='utf-8') as file:
@@ -1708,11 +1831,60 @@ def parse_levels_robust(filename):
                 map_name = parts[1].strip('{').strip()
             else:
                 map_name = ""
+
+            
+            #if map_name=='MAP30':
+                
             
             #print2(f"Начало блока MAP: {map_name}")
             
             # Создаем объект уровня
             level = level_t(index=len(level_dict), name=map_name)
+
+            #21:22 10.01.2026
+            #Navoraczivajem defolty
+
+            
+            if map_name == "MAP06":
+                level.intertext = 'lookup, "C1TEXT"'
+            elif map_name == "MAP07":
+                level.add_bossaction('Fatso', 23, 666)
+                level.add_bossaction('Arachnotron', 30, 667)
+            elif map_name == "MAP11":
+                level.intertext = 'lookup, "C2TEXT"'
+            elif map_name == "MAP20":
+                level.intertext = 'lookup, "C3TEXT"'
+            elif map_name == "MAP30":
+                level.intertext = 'lookup, "C4TEXT"'
+            elif map_name == "MAP15":
+                level.intertextsecret = 'lookup, "C5TEXT"'
+            elif map_name == "MAP31":
+                level.intertextsecret = 'lookup, "C6TEXT"'
+
+            elif map_name == "E1M1":
+                episoda = ('M_EPI1', 'Knee-Deep in the Dead', 'K')
+                level.set_field_value('episode', [episoda])
+            elif map_name == "E2M1":
+                episoda = ('M_EPI2', 'The Shores of Hell', 'T')
+                level.set_field_value('episode', [episoda])
+            elif map_name == "E3M1":
+                episoda = ('M_EPI3', 'Inferno', 'I')
+                level.set_field_value('episode', [episoda])
+            elif map_name == "E4M1":
+                episoda = ('M_EPI4', 'Thy Flesh Consumed', 'T')
+                level.set_field_value('episode', [episoda])                
+                
+            elif map_name == "E1M8":
+                level.add_bossaction('BaronOfHell', 23, 666)
+            elif map_name == "E2M8":
+                level.add_bossaction('Cyberdemon', 11, 666)
+            elif map_name == "E3M8":
+                level.add_bossaction('SpiderMastermind', 11, 666)
+
+            elif map_name == "E4M6":
+                level.add_bossaction('Cyberdemon', 109, 666)                
+            elif map_name == "E4M8":
+                level.add_bossaction('SpiderMastermind', 23, 666)
             
             # Начинаем читать поля со следующей строки
             i += 1
@@ -1798,6 +1970,7 @@ def parse_levels_robust(filename):
                                         print2(f"//Неверное значение partime: {value}")
                                 # Обработка списка episode (БОЛЕЕ ТОЧНАЯ ВЕРСИЯ)
                                 elif key == 'episode':
+                                    
                                     try:
                                         # Формат: episode = "M_EPI1", "Pick Your Eggnog", "P"
                                         cleaned_value = value.strip()
@@ -1839,7 +2012,11 @@ def parse_levels_robust(filename):
                                         if len(cleaned_parts) >= 3:
                                             episode_tuple = (cleaned_parts[0], cleaned_parts[1], cleaned_parts[2])
                                             level.set_field_value('episode', [episode_tuple])
+                                            combined_tuple = (level.name,) + episode_tuple #10:33 09.01.2026
+                                            EPISMAS.append(combined_tuple)  #9:54 09.01.2026
                                             #print2(episode_tuple) #14:05 04.01.2026 was for debug
+                                        elif cleaned_parts[0] == 'clear':
+                                            level.set_field_value('episode', [])
                                         else:
                                             print2(f"//Предупреждение: episode содержит {len(cleaned_parts)} частей вместо 3: {cleaned_parts}")
                                             
@@ -1877,6 +2054,8 @@ def parse_levels_robust(filename):
                                                 level.set_field_value('bossaction', level.bossaction + [(parts[0], int(parts[1]), tag)])
                                             except ValueError:
                                                 print2(f"//Неверный tag в bossaction: {parts[2]}")
+                                        elif parts[0] == 'clear':
+                                            level.set_field_value('bossaction', [])
                                     except Exception as e:
                                         print2(f"//Ошибка обработки bossaction: {e}, значение: {value}")
                                 # Обработка логических полей
@@ -1899,12 +2078,110 @@ def parse_levels_robust(filename):
                 if i > len(lines):
                     print2("//Превышен лимит строк. Возможно, ошибка в формате файла.")
                     break
-
+            '''
             #Постобработка уровня
-            if level.nextsecret == "" and level.next:
-                level.nextsecret = level.next
-            elif level.next == "" and level.nextsecret:
-                level.next = level.nextsecret
+            #mock_count = 0 #+1 i will give for each intertext
+            #mock = level.intertext + level.intertextsecret
+            #mock_count = !!level.intertext + !!level.intertextsecret
+                
+            #mock = level.intertext or level.intertextsecret
+            #exit_count = sum(bool(x) for x in [level.intertext, level.intertextsecret])
+            #19:52 09.01.2026
+            #0 - net textov, 1 - tolko intertext, 2 - tolko secrettext, 3 - oba texta
+            if muga:
+                #newcluster = 
+                if exita == 0 and level.endkok: #endgame razrulivajem
+                    pass
+                elif exita == 1: #jest odin normal exit
+                    level.cluster = clusterkok()
+                    clusterset.add(level.cluster)
+            '''
+            #10:32 10.01.2026
+            if not level.next:
+                level.next = increment_string_suffix(map_name)
+            #13:19 10.01.2026
+            #if not level.nextsecret:
+            #    level.nextsecret = level.next
+            '''
+            interkok = [level.intertext, level.intertextsecret]
+            interptr = -1 #-1 n
+            
+            for i in interkok:
+                if interkok[i]:
+                    interptr = i
+                    break
+            '''
+            
+            muga = int(bool(level.intertext)) + 2 * int(bool(level.intertextsecret))
+            #exita = int(bool(level.next)) + 2 * int(bool(level.nextsecret))
+
+            for fielda in ['label', 'intertext', 'intertextsecret']:
+                val = getattr(level, fielda)
+                if val == 'clear':
+                    setattr(level, fielda, '')
+            #22:12 10.01.2026      
+            if not level.nextsecret:
+                level.intertextsecret = ''
+                
+                
+
+#12:30 10.01.2026 BIASED_PRECISION_ROUTINE
+            #biased_exit_count = 1 if level.next == level.nextsecret else 2
+            has_secret_exit = level.nextsecret and level.next != level.nextsecret
+            biased_exit_count = 2 if has_secret_exit else 1
+
+            
+            '''
+            if muga&1 or muga&2:
+                if level.endkok:
+                    next = endsequence, vauinterXY
+                    #level.next =
+                if level.next == level.nextsecret:
+                    level.cluster = clusterkok()
+                    clusterset.add(level.cluster)
+                else:
+            '''
+            
+            #level.cluster = clusterkok()
+            #clustertemp = clusterkok()
+            clustertemp = extract_digits(map_name)
+            
+            if biased_exit_count == 1 and \
+            not level.endkok and \
+            (level.intertext
+            or level.intertextsecret):
+            #and not level.intertextsecret:
+                #doExitText
+
+                newcluster = cluster_t()
+                newcluster.flat = level.interbackdrop or 'FLOOR4_8'
+                newcluster.exit = level.intertext or level.intertextsecret
+                if level.intermusic:
+                    newcluster.music = intermusic
+
+                clusterdict[clustertemp] = newcluster
+                level.cluster = clustertemp
+
+            elif biased_exit_count == 1 and level.endkok:
+                level.next = 'endsequence, vauinter{clustertemp}'
+
+                textscreen = cluster_t()
+                textscreen.flat = level.interbackdrop or 'FLOOR4_8'
+                textscreen.exit = level.intertext
+
+                newinter = ending_t()
+                newinter.textscreen = textscreen
+                newinter.endkok = level.endkok
+                
+                
+                interdict[clustertemp] = newinter
+            
+            
+                
+            
+            
+
+            
                 
             
             # Добавляем уровень в словарь
@@ -1923,80 +2200,9 @@ def parse_file_robust(filename):
         return level_dict
     
     return {}
-def reflect_umapinfo(level_dict):
-
-        
-        # Выводим результат
-        if level_dict:
-            #print2(f"\nНайдено уровней: {len(level_dict)}")
-            for map_name, level in level_dict.items():
-                print2(f"\nmap {map_name}")
-                print2("{")
-                
-                # Выводим только те поля, которые были найдены при парсинге
-                excluded_fields = {'index', 'name', '_parsed_fields'}
-                
-                # Получаем все поля dataclass
-                for field_info in fields(level_t):
-                    field_name = field_info.name
-                    
-                    if field_name in excluded_fields:
-                        continue
-                        
-                    value = getattr(level, field_name)
-                    
-                    # Пропускаем пустые значения
-                    if value is None or value == "" or value == []:
-                        continue
-                    
-                    # Обработка episode (список кортежей)
-
-                    if field_name == 'episode' and value:
-                        if isinstance(value, list):
-                            for episode_item in value:
-                                if isinstance(episode_item, (list, tuple)) and len(episode_item) >= 3:
-                                    print2(f'    episode = "{episode_item[0]}", "{episode_item[1]}", "{episode_item[2]}"')
-                                else:
-                                    print2(f'    # Ошибка: некорректный формат episode: {episode_item}')
-                        else:
-                            # Если по какой-то причине это не список, попробуем вывести как есть
-                            print2(f'    episode = {value}')
-                    # Обработка bossaction (список кортежей)
-                    elif field_name == 'bossaction' and value:
-                        for action in value:
-                            if isinstance(action, (list, tuple)) and len(action) >= 3:
-                                print2(f'    bossaction = "{action[0]}", "{action[1]}", {action[2]}')
-                    # Числовые значения
-                    elif isinstance(value, int):
-                        print2(f'    {field_name} = {value}')
-                    # Логические значения
-                    elif isinstance(value, bool):
-                        print2(f'    {field_name} = {str(value).lower()}')
-                    # Опциональные логические значения
-                    elif field_name in ['endgame', 'nointermission'] and value is not None:
-                        print2(f'    {field_name} = {str(value).lower()}')
-                    # Строковые значения
-                    elif isinstance(value, str):
-                        # Для intertext выводим как многострочное значение
-                        if field_name == 'intertext' and '\n' in value:
-                            print2(f'    {field_name} = "{value}"')
-                        else:
-                            print2(f'    {field_name} = "{value}"')
-                
-                print2("}")
-        else:
-            print2("Блоки map не найдены в файле")
             
 def reflect_umapinfo2(level_dict):
-    def make_counter(start: int = 0):
-        current = start
-
-        def _next() -> int:
-            nonlocal current
-            current += 1
-            return current
-
-        return _next
+    global EPISMAS
     next_num = make_counter()
     
     #11:36 06.01.2026
@@ -2048,12 +2254,32 @@ def reflect_umapinfo2(level_dict):
         '_parsed_fields',
         #'endkok'#18:41 07.01.2026
         }
-            
+
+    #9:51 09.01.2026
+    #Разборка с эпизодами
+    #episode eto pic, name, key 10:10 09.01.2026
+    
+    if EPISMAS:
+        print2(f"clearepisodes")
+        #for pic, name, key in EPISMAS:
+        #    print2(f'')
+
+
+
+
+
+      
     # Выводим результат
     if level_dict:
         #print2(f"\nНайдено уровней: {len(level_dict)}")
         for map_name, level in level_dict.items():
             interIndex = next_num()
+
+            if level.episode:
+                #print(repr(level.episode))
+                picname, name, key = level.episode[0]
+                print2(f'episode {map_name}\n{{\n\tname = "{name}"\n\tpicname = "{picname}"\n\tkey = "{key}"\n}}')
+            
             print2(f'\nmap {map_name} "{level.levelname}"')
             print2("{")
             
@@ -2106,64 +2332,16 @@ def reflect_umapinfo2(level_dict):
                     for massiv in level.bossaction:
                         monstr, doomspec, doomtag = massiv
                         print2(f'    specialaction = {monstr}, {simple_translate_doom_to_hexen(doomspec,doomtag)}')
-                #{simple_translate_doom_to_hexen(doomspec,doomtag)}
                 
-
-                #22:01 06.01.2026
-##                специальная обработка
-##                касающаяся кластердефов
-##                или простых интермиссий
-##                
-                #18:08 07.01.2026
-                #Не может так оказаться что обычный выход ведёт на одну концовку, а необычный - на другую.
-                #В Гоззе конечно может быть, но не в старой как 1.9.1 например
-                #if level.endkok:
-                    #whatNext = 'next' if level.next else ('secret' if level.nextsecret else 'next')
-                    #whatNext = 'secret' if not level.next and level.nextsecret else 'next'
-                    
-
-
-
-                '''
-                # Обработка episode (список кортежей)
-                if field_name == 'episode' and value:
-                    if isinstance(value, list):
-                        for episode_item in value:
-                            if isinstance(episode_item, (list, tuple)) and len(episode_item) >= 3:
-                                print2(f'    episode = "{episode_item[0]}", "{episode_item[1]}", "{episode_item[2]}"')
-                            else:
-                                print2(f'    # Ошибка: некорректный формат episode: {episode_item}')
-                    else:
-                        # Если по какой-то причине это не список, попробуем вывести как есть
-                        print2(f'    episode = {value}')
-                # Обработка bossaction (список кортежей)
-                elif field_name == 'bossaction' and value:
-                    for action in value:
-                        if isinstance(action, (list, tuple)) and len(action) >= 3:
-                            print2(f'    bossaction = "{action[0]}", "{action[1]}", {action[2]}')
-                # Числовые значения
-                elif isinstance(value, int):
-                    print2(f'    {field_name} = {value}')
-                # Логические значения
-                elif isinstance(value, bool):
-                    print2(f'    {field_name} = {str(value).lower()}')
-                # Опциональные логические значения
-                elif field_name in ['endgame', 'nointermission'] and value is not None:
-                    print2(f'    {field_name} = {str(value).lower()}')
-                # Строковые значения
-                elif isinstance(value, str):
-                    # Для intertext выводим как многострочное значение
-                    if field_name == 'intertext' and '\n' in value:
-                        print2(f'    {field_name} = "{value}"')
-                    else:
-                        print2(f'    {field_name} = "{value}"')
-                '''
             print2("}")
     else:
-        print2("Блоки map не найдены в файле")            
+        print2("Блоки map не найдены в файле")
+    doClusters()
+    doInters()
 
         
 def main():
+    global EPISMAS
     if len(argv) < 2:
         if os.path.exists(PATIENT):
             filename = PATIENT
