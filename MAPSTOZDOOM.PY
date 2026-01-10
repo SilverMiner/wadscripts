@@ -12,8 +12,10 @@
 #PATIENTA = "H:/Games/Doom/templeaa.wad"
 #PATIENTA = "H:/Games/Doom/RMG_CITY.wad"
 #PATIENTA = "H:/Games/Doom/belot.wad"
-PATIENTA = "H:/Games/Doom/AdMortem_v1.5.6.wad"
+#PATIENTA = "H:/Games/Doom/AdMortem_v1.5.6.wad"
 #PATIENTA = "H:/Games/Doom/300lnmas.wad"
+#PATIENTA = "H:/Games/Doom/SNOWBALL INSANITY [WINNKAR].wad"
+PATIENTA = "H:/Games/Doom/nt2f.wad"
 PATIENTB = "H:/Games/Doom/DOOM2.wad"
 anim_speeds = []
 SECTYPE2NAMES = {
@@ -86,8 +88,12 @@ def problemnyj(sec):
     da = sec.tx_floor == 'F_SKY1' and sec.type & 4096 and sec.tag == 0
     return da
 
+mbf21Stream = ''
+
 def findmbf21sectors(map, name):
-    global mapsdict, warnings
+    global mapsdict, warnings, mbf21Stream
+    mbf21lines = {}
+    
     mbf21secs = set()
     sitotype = {}
     sitoflat = {}
@@ -104,12 +110,19 @@ def findmbf21sectors(map, name):
     maxheight = -32768
 
     ed = MapEditor(map)
-    
+    for ld in ed.linedefs:
+        #if ld.action>=1024 and ld.action<=1026:
+        if ld.flags&4096 or ld.flags&8192:
+            mbf21lines[ld.flags]=name
+    for key, value in mbf21lines.items():
+        warnings += f'//{value} has {key}\n'
+        
     for si, sec in enumerate(ed.sectors):
-
+        warndone = False
         if problemnyj(sec):
             maxheight = max(maxheight, sec.z_floor)
-            warnings += name+ f' {SECTYPE3NAMES.get((ed.sectors[si].type & 0x60) >> 5)}' + str(si) + '\n'
+            warnings += '//problemsky ' + name + f' {SECTYPE3NAMES.get((ed.sectors[si].type & 0x60) >> 5)} {ed.sectors[si].type} ' + str(si) + '\n'
+            warndone = True
         else:
             minheight = min(minheight, sec.z_floor)
             
@@ -119,8 +132,14 @@ def findmbf21sectors(map, name):
             chaska[sec.tag].add(sec.type)
         else:
             chaska[sec.tag] = {sec.type}
+
+        if sec.type & 8192:
+            warnings += '//' + name + f'{ed.sectors[si].type} si:{si} tag:{ed.sectors[si].tag}\n'
+            
         if sec.type & 4096:
             mbf21secs.add(si)
+            if not warndone:
+                warnings += '//' + name + f' {SECTYPE3NAMES.get((ed.sectors[si].type & 0x60) >> 5)} {ed.sectors[si].type} si:{si} tag:{ed.sectors[si].tag}\n'
             #if (sec.type & 0x60) >> 5 < 2:
             #    maxheight
             
@@ -228,6 +247,7 @@ def genFSGLOBAL():
     global scriptStream, warnings
     for name in mapnames:
         heightHackNotUsed = True
+        #xlatHackNotUsed = True
         lnum = int(name[3:])
         
         
@@ -251,9 +271,12 @@ def genFSGLOBAL():
             flatone = sitoflat.get(si, '')
             if not (typea < 2 and flatone == 'F_SKY1'):
                 scriptStream += getdonebyindex(si, typea, flatone)
+            elif flatone == 'F_SKY1' and sitotype.get(si, 0) in [4096,4128]:
+                #xlat razberetsae
+                warnings += '//' + name + ' ' + str(si) + 'deadly sky should be resolved by xlat\n'
             elif flatone == 'F_SKY1' and heightHackNotUsed:
                 if maxheight<=minheight:
-                    warnings += '//' + name + ' ' + str(si) + 'deadly sky resolve\n'
+                    warnings += '//' + name + ' ' + str(si) + 'deadly sky resolved\n'
                     scriptStream += f'while(1==1)\
 {{ if (trigger.objz <= {maxheight})\
 {{\
@@ -416,7 +439,7 @@ def doAnimEntry(word, wordHashed, x):
     
 
 def main(args):
-    global pattern,mode,scriptStream,terrainflats,terrainneedglobal,anim_good,anim_ranges,animStream,anim_speeds
+    global pattern,mode,scriptStream,terrainflats,terrainneedglobal,anim_good,anim_ranges,animStream,anim_speeds,mbf21Stream
     inwad = WAD()
     #outwad = WAD()
 	#0:45 28.12.2025
@@ -436,7 +459,11 @@ def main(args):
         print('guga')
 
     iwadflatlist=list(iwad.flats)
-    pwadflatlist=iwadflatlist+list(inwad.flats)
+    #print(iwadflatlist,'\n\n\n')
+    #print(list(inwad.flats),'\n\n\n')
+    #pwadflatlist=iwadflatlist+list(inwad.flats)
+    #23:41 10.01.2026 Бляха муха а ведь если ресурсник имеет новую скажем водичку, то анимдефс пойдёт по пизде
+    pwadflatlist = [flat for flat in iwadflatlist if flat not in list(inwad.flats)] + list(inwad.flats)
     anim_lump = inwad.data['ANIMATED'].data
     anim_parsed = parse_animated_lump(anim_lump)
     anim_ranges = [(start.decode('ascii'), end.decode('ascii'), speed) for start, end, speed in anim_parsed]
@@ -458,7 +485,8 @@ def main(args):
 
     # Убираем дубликаты, если диапазоны пересекаются
     #anim_good = list(dict.fromkeys(anim_good))
-
+    #print(anim_good)
+    #return 0 #test animdefov
     if (len(args) >= 3):
             for arg in args[2:]:
                     if arg in mode_map:
@@ -496,9 +524,13 @@ def main(args):
                 if wordHashed in terrainneedset:
                     animStream += doAnimEntry(word, wordHashed, gugh)
     
-    print(warnings)
+    
     if animStream:
         print('//ANIMDEFS BEGIN\n',animStream,'//ANIMDEFS END\n',sep='\n')
+
+    print(warnings)
+    print(mbf21Stream)
+    
     
 
 if __name__ == "__main__":
