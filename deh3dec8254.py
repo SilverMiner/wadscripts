@@ -3,7 +3,7 @@
 from sys import argv
 from dataclasses import dataclass, fields
 import copy
-from collections import defaultdict
+#from collections import defaultdict
 #from typing import List
 
 MT_CLIP = 64
@@ -28,7 +28,10 @@ wha = 'H:\\Compilers\\dehacked2decorate\\BaseTables\\'
 #patient = "H:/Games/Doom/dbp50stalk17.bex"
 #patient = "H:/Games/Doom/DEHACKEDadmortem.txt"
 #patient = "H:/Games/Doom/DEHACKEDnt2fv5.txt"
-patient = "H:/Games/Doom/DEHACKED300lnmas.txt"
+patient = "H:/Games/Doom/DEHACKEDSNOWBALL INSANITY [WINNKAR].txt"
+#patient = "H:/Games/Doom/DEHACKEDnt2fv5.txt"
+#patient = "H:/Games/Doom/DEHACKEDid1.txt"
+#patient = "H:/Games/Doom/nt2fRC1texts/DEHACKED.txt"
 files = ['base_states2.dat','base_things.dat']
 labelDict = {}
 
@@ -42,6 +45,8 @@ curwepnammouse = -1
 curactor = -1
 
 labelStream = ''
+#23:56 10.01.2026
+languageStream = ''
 def labelcatcher(x):
     global labelStream
     labelStream += str(x)+f'in {curactor}'+'\n'
@@ -932,9 +937,10 @@ def parse_block(lines, blocktype = thing_t):
 
 ttsize,stsize,wtsize=0,0,0
 def tsizeeval(filelines):
-    global ttsize,stsize,wtsize
+    global ttsize,stsize,wtsize, languageStream
     inSprAliases = False
     inSfxAliases = False
+    inStrAliases = False
     for line in filelines:
         val = extract_number(line)
         if 'Frame ' in line:
@@ -954,6 +960,9 @@ def tsizeeval(filelines):
             
         elif '[SPRITES]' in line:
             inSprAliases = True
+
+        elif '[STRINGS]' in line:
+            inStrAliases = True
             
         elif inSfxAliases:
             if line.strip():
@@ -974,6 +983,16 @@ def tsizeeval(filelines):
                     sprAliases[keya]=valaa
                 except Exception:
                     inSprAliases = False
+                    
+        elif inStrAliases:
+            if line.strip():
+                linesp = line.split('=')
+                try:
+                    keya = linesp[0].strip()
+                    valaa = linesp[1].strip()
+                    languageStream += keya+' = '+valaa+';\n'
+                except Exception:
+                    inSprAliases = False                
                 
                 
                 
@@ -981,10 +1000,128 @@ def tsizeeval(filelines):
     ttsize+=1
     wtsize+=1
 #19:39 25.05.2025 desultory bug fix (when dehacked has less stuff than basetables)
-    
+
+    print(ttsize,stsize,wtsize)
+
     stsize = max(1076, stsize)
     ttsize = max(147, ttsize)
     wtsize = max(9, ttsize)
+def tsizeeval2(filelines):
+    global ttsize, stsize, wtsize, languageStream
+    inSprAliases = False
+    inSfxAliases = False
+    inStrAliases = False
+    
+    i = 0
+    while i < len(filelines):
+        line = filelines[i]
+        val = extract_number(line)
+        
+        if 'Frame ' in line:
+            stptr = val
+            if val > stsize:
+                stsize = val
+        elif 'Thing ' in line:
+            ttptr = val
+            if val > ttsize:
+                ttsize = val
+        elif 'Weapon ' in line:
+            wtptr = val
+            if val > wtsize:
+                wtsize = val
+        
+        # Обработка блока [STRINGS]
+        elif '[STRINGS]' in line:
+            inStrAliases = True
+            i += 1
+            continue
+        
+        elif inStrAliases:
+            # Пропускаем пустые строки в блоке [STRINGS]
+            if not line.strip():
+                i += 1
+                continue
+                
+            # Проверяем, не начался ли новый блок
+            if line.strip().startswith('[') and line.strip().endswith(']'):
+                inStrAliases = False
+                i += 1
+                continue
+            
+            # Собираем многострочную строку
+            key_line = line
+            string_value = ''
+            
+            # Находим позицию первого знака равенства
+            eq_pos = key_line.find('=')
+            if eq_pos != -1:
+                key_part = key_line[:eq_pos].strip()
+                value_part = key_line[eq_pos + 1:].strip()
+                string_value = value_part
+                
+                # Проверяем, является ли строка многострочной (заканчивается на \)
+                while i < len(filelines) - 1 and string_value.endswith('\\'):
+                    # Убираем последний обратный слеш
+                    string_value = string_value[:-1]
+                    i += 1
+                    next_line = filelines[i]
+                    
+                    # Добавляем следующую строку, удаляя начальные пробелы
+                    next_line_stripped = next_line.lstrip()
+                    if next_line_stripped.startswith('\\'):
+                        next_line_stripped = next_line_stripped[1:]
+                    string_value += '\n' + next_line_stripped
+                
+                # Добавляем в languageStream
+                languageStream += key_part + ' = "' + string_value + '";\n'
+        
+        # Обработка блоков [SOUNDS] и [SPRITES] (остаётся без изменений)
+        elif '[SOUNDS]' in line:
+            inSfxAliases = True
+            i += 1
+            continue
+            
+        elif inSfxAliases:
+            if not line.strip():
+                inSfxAliases = False
+            else:
+                linesp = line.split('=')
+                try:
+                    keya = int(linesp[0].strip())
+                    valaa = linesp[1].strip()
+                    sfxAliases[keya] = 'ds' + valaa
+                except Exception:
+                    inSfxAliases = False
+        
+        elif '[SPRITES]' in line:
+            inSprAliases = True
+            i += 1
+            continue
+            
+        elif inSprAliases:
+            if not line.strip():
+                inSprAliases = False
+            else:
+                linesp = line.split('=')
+                try:
+                    keya = int(linesp[0].strip())
+                    valaa = linesp[1].strip()
+                    sprAliases[keya] = valaa
+                except Exception:
+                    inSprAliases = False
+        
+        i += 1
+        
+    stsize+=1
+    ttsize+=1
+    wtsize+=1
+    
+    print(ttsize,stsize,wtsize)
+    
+    # Минимальные размеры таблиц
+    stsize = max(1076, stsize)
+    ttsize = max(147, ttsize)
+    wtsize = max(9, wtsize)
     
 def initbasetables():
     fnum = 0
@@ -2386,7 +2523,7 @@ with open(patient, 'r', encoding='utf-8') as deh:
     deh_lines = deh.read().splitlines()
     
 #2. Get sizes to initialise base tables
-tsizeeval(deh_lines)
+tsizeeval2(deh_lines)
 
 st = [copy.deepcopy(state_t()) for _ in range(stsize)]
 tt = [copy.deepcopy(thing_t()) for _ in range(ttsize)]
@@ -2450,6 +2587,10 @@ if labelStream:
     print(labelStream)
 else:
     print("//labelsGood")
+
+if languageStream:
+    print('//LANGUAGE START', languageStream,'//LANGUAGE END', sep = '\n')
+
 #print('*/')
 #if __name__ == "__main__":
 #	main(argv[1:])
