@@ -2163,7 +2163,7 @@ def parse_levels_robust(filename):
                 level.cluster = clustertemp
 
             elif biased_exit_count == 1 and level.endkok:
-                level.next = 'endsequence, vauinter{clustertemp}'
+                level.next = f'endsequence, vauinter_{clustertemp}'
 
                 textscreen = cluster_t()
                 textscreen.flat = level.interbackdrop or 'FLOOR4_8'
@@ -2224,7 +2224,7 @@ def reflect_umapinfo2(level_dict):
     'levelpic':'titlepatch',
     'nextsecret':'secret',
     'skytexture':'skybox',
-    'partime':'par'        
+    'partime':'par'
     }
 
     #11:46 06.01.2026 интермиссии и кластердефы
@@ -2306,7 +2306,8 @@ def reflect_umapinfo2(level_dict):
 ##                или можно не менять
 
                 if field_name in BLUSET:
-                    if level.endkok and field_name in ['next','nextsecret']:
+                    '''
+                    if 0 and level.endkok and field_name in ['next','nextsecret']:
                         #for whatNext in ['next','secret']:
                         whatNext = 'secret' if field_name == 'nextsecret' else 'next'
                         if level.endkok == '$CAST':
@@ -2317,6 +2318,10 @@ def reflect_umapinfo2(level_dict):
                             print2(f'    {whatNext} = EndGame1')
                         else:
                             print2(f'    {whatNext} = endsequence, vauinter_{interIndex}')
+                    '''
+                    if level.endkok and field_name in ['next','nextsecret']:
+                        field_name2 = BLUDICT.get(field_name,field_name)
+                        print2(f'    {field_name2} = {value}')
                     else:
                         if not value:
                             continue
