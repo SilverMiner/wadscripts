@@ -439,7 +439,7 @@ def doAnimEntry(word, wordHashed, x):
     
 
 def main(args):
-    global pattern,mode,scriptStream,terrainflats,terrainneedglobal,anim_good,anim_ranges,animStream,anim_speeds,mbf21Stream
+    global pattern,mode,scriptStream,terrainflats,terrainneedglobal,anim_good,anim_ranges,animStream,anim_speeds,mbf21Stream,texStream
     inwad = WAD()
     #outwad = WAD()
 	#0:45 28.12.2025
@@ -487,6 +487,15 @@ def main(args):
     #anim_good = list(dict.fromkeys(anim_good))
     #print(anim_good)
     #return 0 #test animdefov
+
+    #18:36 11.01.2026 razrulivanije widescreen stbarov
+    #stbar = inwad.data["STBAR"]
+    stbar = inwad.graphics["STBAR"]
+    if stbar.width!=320:
+        texStream += f'Texture "STBAR", {stbar.width}, {stbar.height}\n\
+{{\nOffset {stbar.width//2-160}, {stbar.height//2-16}\n\
+Patch "STBAR", 0, 0\n}}\n'
+    
     if (len(args) >= 3):
             for arg in args[2:]:
                     if arg in mode_map:
