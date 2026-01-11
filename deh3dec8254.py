@@ -16,7 +16,7 @@ MT_CHAINGUY = 11
 #THELOOPS = ['spawnloop','seeloop', 'painloop', 'meleeloop', 'missileloop', 'deathloop', 'xdeathloop', 'raiseloop']
 THELOOPS = ['spawn','see', 'pain', 'melee', 'missile', 'death', 'xdeath', 'raise']
 hasChase = set()
-hasFire = set()
+hasToBeSeeker = set()
 vivod=''
 newdecorate=''
 wha = 'H:\\Compilers\\dehacked2decorate\\BaseTables\\'
@@ -784,6 +784,73 @@ WEAPONNAMES = [
 "SuperShotgun",
 
 ]
+def trim_trailing_zero_args(input_string):
+    """
+    Обрезает завершающие нулевые аргументы из строки с A_SpawnItemEx.
+    
+    Args:
+        input_string: Входная строка
+        
+    Returns:
+        Обрезанная строка или оригинальная, если нет A_SpawnItemEx
+    """
+    
+    # Находим позиции скобок A_SpawnItemEx
+    start_idx = input_string.find("(")
+    if start_idx == -1:
+        return input_string
+    
+    # Находим открывающую скобку после A_SpawnItemEx
+    open_paren_idx = start_idx + len("(") - 1
+    
+    # Находим соответствующую закрывающую скобку
+    paren_count = 0
+    close_paren_idx = -1
+    
+    for i in range(open_paren_idx, len(input_string)):
+        char = input_string[i]
+        if char == '(':
+            paren_count += 1
+        elif char == ')':
+            paren_count -= 1
+            if paren_count == 0:
+                close_paren_idx = i
+                break
+    
+    if close_paren_idx == -1:
+        return input_string  # Не нашли закрывающую скобку
+    
+    # Разделяем строку на части
+    before = input_string[:open_paren_idx + 1]  # Включая "("
+    after = input_string[close_paren_idx:]  # Начиная с ")"
+    
+    # Извлекаем содержимое скобок
+    content = input_string[open_paren_idx + 1:close_paren_idx]
+    
+    # Разделяем на аргументы
+    # Сначала отделяем первый строковый аргумент
+    first_comma = content.find(',')
+    if first_comma == -1:
+        return input_string  # Нет аргументов после первого
+    
+    first_arg = content[:first_comma]
+    args_part = content[first_comma + 1:]
+    
+    # Разделяем остальные аргументы по запятым
+    args = [arg.strip() for arg in args_part.split(',')]
+    
+    # Удаляем завершающие нулевые аргументы
+    while args and args[-1] in ['0', '0.0', '0.00', '0.000']:
+        args.pop()
+    
+    # Если удалили все аргументы, добавляем один ноль
+    if not args:
+        args = ['0']
+    
+    # Собираем все обратно
+    
+    result = before + first_arg  + (', ' + ', '.join(args) if args else '') + after
+    return result
 
 def extract_number(line):
     digits = ''
@@ -1258,17 +1325,26 @@ def doAction(state):
     # MBF21 BEGIN
     #
     elif action == 'SpawnObject':
+        sxf_flags = 0
         for i in range(1,8):
             args[i]=int32tofixed(args[i])
+        if args[0] and tt[args[0]].flags & 0x20010000:
+            if curactor.flags & 0x20010000:
+                sxf_flags |= 0x000400
+            else:
+                sxf_flags |= 0x100400
+                
         expr = (
             f'A_SpawnItemEx("{getActorName(args[0])}",{args[2]},{args[3]},{args[4]},'
-            f'{args[5]},{args[6]},{args[7]},{args[1]})'
+            f'{args[5]},{args[6]},{args[7]},{args[1]},{sxf_flags})'
             )
     elif action == 'MonsterProjectile':
         for i in range(1,5):
             args[i]=int32tofixed(args[i])
+        if args[0]:
+            hasToBeSeeker.add(args[0])
         expr = (
-            f'A_CustomMissile("{getActorName(args[0])}",{32.0-args[4]},{args[3]},{args[1]},'
+            f'A_CustomMissile("{getActorName(args[0])}",{32.0+args[4]},{args[3]},{args[1]},'
             f'0,{args[2]})'
             )
     elif action == 'MonsterBulletAttack':
@@ -1301,10 +1377,10 @@ def doAction(state):
             )
 #23:25 11.01.2026
 #Chase byl dlae zajki v 300lnmas, a Fire budet dlae nt2f
-    elif action == 'Fire':
-        hasFire.add(curactor.index)
+    elif action in ['Tracer', 'Fire']:
+        hasToBeSeeker.add(curactor.index)
         expr = (
-            f'A_Fire'
+            f'A_{action}'
             )    
     elif action == 'HealChase':
         hasChase.add(curactor.index)
@@ -1312,6 +1388,7 @@ def doAction(state):
             f'A_VileChase'
             )
     elif action == 'FindTracer':
+        hasToBeSeeker.add(curactor.index)
         dist = args[1] or 128
         expr = (
             f'A_SeekerMissile(0,0,SMF_LOOK,50,{dist})'
@@ -1320,6 +1397,7 @@ def doAction(state):
         expr = f'A_RearrangePointers(AAPTR_DEFAULT,AAPTR_DEFAULT,AAPTR_NULL)'
         
     elif action == 'SeekTracer':
+        hasToBeSeeker.add(curactor.index)
         threshold = int32tofixed(args[0])
         turnmax = int32tofixed(args[1])
         expr = f'A_SeekerMissile({threshold},{turnmax},SMF_PRECISE)'
@@ -1355,10 +1433,12 @@ def doAction(state):
         dist = int32tofixed(args[1])
         expr = f'A_JumpIfCloser({dist},"{labl}")' 
     elif action == 'JumpIfTracerInSight':
+        hasToBeSeeker.add(curactor.index)
         labl = labelDict.get(args[0]) or labelcatcher(args[0])
         fov = int32tofixed(args[1])
         expr = f'A_JumpIfTargetInLOS("{labl}",{fov},JLOSF_CHECKTRACER)'
     elif action == 'JumpIfTracerCloser':
+        hasToBeSeeker.add(curactor.index)
         labl = labelDict.get(args[0]) or labelcatcher(args[0])
         dist = int32tofixed(args[1])
         expr = f'A_JumpIfTracerCloser({dist},"{labl}")'
@@ -1370,6 +1450,8 @@ def doAction(state):
     # WEPEN BEGIN
     #
     elif action == 'WeaponProjectile':
+        if args[0]:
+            hasToBeSeeker.add(args[0])
         typ = getActorName(args[0])
         angle = int32tofixed(args[1])
         pitch = int32tofixed(args[2])
@@ -1504,6 +1586,9 @@ f'A_CustomPunch({damageexpr1}, TRUE, 0, "BulletPuff", {rangee}, 0,0,"ArmorBonus"
     else:
         return f'A_{action}'
         # В самом конце функции
+    #1:13 12.01.2026
+    
+    #expr = trim_trailing_zero_args(expr)
     if expr is None:
         raise ValueError(f"Неожиданное состояние: action={action}, expr=None")
     return expr
@@ -2242,7 +2327,7 @@ def decorateActor(actor, iswepen = 0):
 +CANPASS\n\
 +CANUSEWALLS\n'
 
-    if actor.index in hasFire:
+    if actor.index in hasToBeSeeker:
         daStream += '+SEEKERMISSILE\n'
         
     #sounds
