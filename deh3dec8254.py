@@ -16,6 +16,7 @@ MT_CHAINGUY = 11
 #THELOOPS = ['spawnloop','seeloop', 'painloop', 'meleeloop', 'missileloop', 'deathloop', 'xdeathloop', 'raiseloop']
 THELOOPS = ['spawn','see', 'pain', 'melee', 'missile', 'death', 'xdeath', 'raise']
 hasChase = set()
+hasFire = set()
 vivod=''
 newdecorate=''
 wha = 'H:\\Compilers\\dehacked2decorate\\BaseTables\\'
@@ -1298,6 +1299,13 @@ def doAction(state):
         expr = (
             f'A_Chase'
             )
+#23:25 11.01.2026
+#Chase byl dlae zajki v 300lnmas, a Fire budet dlae nt2f
+    elif action == 'Fire':
+        hasFire.add(curactor.index)
+        expr = (
+            f'A_Fire'
+            )    
     elif action == 'HealChase':
         hasChase.add(curactor.index)
         expr = (
@@ -2233,6 +2241,9 @@ def decorateActor(actor, iswepen = 0):
 +ACTIVATEMCROSS\n\
 +CANPASS\n\
 +CANUSEWALLS\n'
+
+    if actor.index in hasFire:
+        daStream += '+SEEKERMISSILE\n'
         
     #sounds
 
