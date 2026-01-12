@@ -17,6 +17,11 @@ MT_CHAINGUY = 11
 THELOOPS = ['spawn','see', 'pain', 'melee', 'missile', 'death', 'xdeath', 'raise']
 hasChase = set()
 hasToBeSeeker = set()
+#18:07 12.01.2026
+isSplashSource = set()
+
+
+
 vivod=''
 newdecorate=''
 wha = 'H:\\Compilers\\dehacked2decorate\\BaseTables\\'
@@ -1404,11 +1409,23 @@ def doAction(state):
     elif action == 'RadiusDamage':
         damag = args[0]
         distn = int32tofixed(args[1])
+        #damagetyp = f"S{curactor.splash_group}" if curactor.splash_group else 'none'
+        #expr = f'A_Explode({damag},{distn},XF_HURTSOURCE,0,0,0,10,"BulletPuff","{damagetyp}")'
+        #18:09 12.01.2026 zdoom 2.8.1 doesn't have damagetype field for this
         expr = f'A_Explode({damag},{distn})'
+        isSplashSource.add(curactor.index)
     #
     # FLAG STUFF
     #
+    elif action == 'Explode':
+        expr = f'A_Explode'
+        isSplashSource.add(curactor.index)
 
+    elif action == 'Detonate':
+        damag = curactor.damage
+        expr = f'A_Explode({damag},{damag})'
+        isSplashSource.add(curactor.index)
+        
     elif action == 'AddFlags':
         expr = doAddFlags(args[0],args[1])
     elif action == 'RemoveFlags':
@@ -2320,6 +2337,31 @@ def decorateActor(actor, iswepen = 0):
         item_name = "None" if actornew.droppeditem == 0 else getActorName(actornew.droppeditem)
         daStream += f'DropItem "{item_name}"\n'
 
+    #17:09 12.01.2026
+    if actornew.infighting_group != actorold.infighting_group:
+        item_name = actornew.infighting_group
+        if not actornew.flags & 0x00010000:
+            daStream += f'Species "N{item_name}"\n\
++NOINFIGHTSPECIES\n'
+        
+    if actornew.projectile_group != actorold.projectile_group:
+        item_name = actornew.projectile_group
+        if item_name > 0:
+            if actornew.flags & 0x00010000: #is_missile
+                daStream += f'DamageType "M{item_name}"\n'
+            else:
+                daStream += f'DamageFactor "M{item_name}", 0.0\n'
+        elif item_name < 0:
+            if not actornew.flags & 0x00010000:
+                daStream += f'Species "N{item_name}"\n\
++DOHARMSPECIES\n'
+    if actornew.splash_group != actorold.splash_group:
+        item_name = actornew.splash_group
+        if actornew.flags & 0x4:
+            daStream += f'DamageFactor "S{item_name}", 0.0\n'
+        elif actornew.index in isSplashSource:
+            daStream += f'DamageType "S{item_name}"\n'
+        
     #if not (get_flags_diff_1_num & 0x00400000) and actor.index in hasChase:
     if not actornew.flags & 0x00400000 and actor.index in hasChase:
         daStream += '+CANPUSHWALLS\n\
