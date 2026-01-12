@@ -11,15 +11,19 @@ import copy, os
 
 #PATIENT = "H:/Games/Doom/UMAPINFO300lnmas.txt"
 PATIENT = "H:/Games/Doom/nt2fRC1texts/UMAPINFO.txt"
-
+um2miWarnings = ''
 # глобальный буфер, в который будет складываться весь вывод
 vivod = []
 #clusterset = set()
 clusterdict = {}
 interdict = {}
+
+lvlnexts = []
+lvlsecrets = []
+
 def extract_digits(text):
     """Оставляет только цифры от строки из букв и цифр"""
-    return ''.join(char for char in text if char.isdigit())
+    return int(''.join(char for char in text if char.isdigit()))
 
 def increment_string_suffix(text):
     """
@@ -93,8 +97,8 @@ class ourbase_t:
 class cluster_t(ourbase_t):
     flat: str = "FLOOR4_8"
     music: str = ""
-    exit: str = ""
     enter: str = ""
+    exit: str = ""
 
 @dataclass
 class ending_t(ourbase_t):
@@ -167,12 +171,14 @@ def doClusters():
 
         if cluster.music:
             print2(f'music = {cluster.music}')
-
+            
+        if cluster.enter:
+            print2(f'entertext = "{cluster.enter}"')
+            
         if cluster.exit:
             print2(f'exittext = "{cluster.exit}"')
 
-        if cluster.enter:
-            print2(f'entertext = "{cluster.enter}"')
+
         
         print2('}')  # FIXED: Moved closing brace to its own line after all properties
         
@@ -2121,9 +2127,9 @@ def simple_translate_doom_to_hexen(doom_special: int, doom_tag: int = 0) -> str:
         translation = SpecialTranslation[doom_special]
     else:
         translation = translate_boom_generalized_to_hexen(doom_special, doom_tag, 0)
-        print(translation)
+        #print(translation)
         translation = simple_convert_generalized(translation)
-    print(translation)
+    #print(translation)
     
     #print(repr(translation), repr(simple_convert_generalized(translation)))
     # Подготавливаем аргументы
@@ -2509,7 +2515,7 @@ def parse_levels_robust(filename):
             #and not level.intertextsecret:
                 #doExitText
 
-                newcluster = cluster_t()
+                newcluster = clusterdict.get(clustertemp, cluster_t())
                 newcluster.flat = level.interbackdrop or 'FLOOR4_8'
                 newcluster.exit = level.intertext or level.intertextsecret
                 if level.intermusic:
@@ -2521,7 +2527,7 @@ def parse_levels_robust(filename):
             elif biased_exit_count == 1 and level.endkok:
                 level.next = f'endsequence, vauinter_{clustertemp}'
 
-                textscreen = cluster_t()
+                textscreen = interdict.get(clustertemp, cluster_t())
                 textscreen.flat = level.interbackdrop or 'FLOOR4_8'
                 textscreen.exit = level.intertext
 
@@ -2529,6 +2535,12 @@ def parse_levels_robust(filename):
                 newinter.textscreen = textscreen
                 newinter.endkok = level.endkok
                 interdict[clustertemp] = newinter
+            #10:34 12.01.2026
+            #tryEnterText
+            #elif biased_exit_count == 2 and not level.endkok:
+            #    level
+                
+            
 
             # Добавляем уровень в словарь
             level_dict[map_name] = level
@@ -2536,6 +2548,7 @@ def parse_levels_robust(filename):
             i += 1
     
     #print2(f"//Найдено блоков: {len(level_dict)}")
+    #print(level_dict)
     return level_dict
 
 def parse_file_robust(filename):
@@ -2546,10 +2559,37 @@ def parse_file_robust(filename):
         return level_dict
     
     return {}
-            
+
+
+def skokoEnters(levelstr, level_dict):
+    #levelnext = level_dict.get(levelstr)
+    
+    for lvlname, level in level_dict.items():
+        if level.next == levelstr:
+            lvlnexts.append(level)
+        if level.nextsecret == levelstr:
+            lvlsecrets.append(level)
+    #lvlallnexts = lvlnexts+lvlsecrets
+    uniqueInterTexts = set()
+    for sok in lvlnexts:
+        uniqueInterTexts.add(sok.intertext)
+    for sok in lvlsecrets:
+        uniqueInterTexts.add(sok.intertextsecret)
+
+    #if len(uniqueInterTexts) == 1:
+        #return 1
+    return len(uniqueInterTexts)
+    
+    
+
 def reflect_umapinfo2(level_dict):
-    global EPISMAS
+    global EPISMAS, um2miWarnings
     next_num = make_counter()
+
+    #10:43 12.01.2026
+    #prodolzit razborki s textami
+    
+    
     
     #11:36 06.01.2026
     #случай когда достаточно менять только название или можно не менять
@@ -2563,7 +2603,8 @@ def reflect_umapinfo2(level_dict):
     'music',
     'exitpic',
     'enterpic',
-    'partime'
+    'partime',
+    'cluster'
     }
 
     BLUDICT={
@@ -2620,6 +2661,51 @@ def reflect_umapinfo2(level_dict):
         #print2(f"\nНайдено уровней: {len(level_dict)}")
         for map_name, level in level_dict.items():
             interIndex = next_num()
+            
+            
+            #10:47 12.01.2026 2 exita tryEntertext
+            has_secret_exit = level.nextsecret and level.next != level.nextsecret
+            biased_exit_count = 2 if has_secret_exit else 1
+            if biased_exit_count == 2 and not level.endkok:
+                #clustertemp = extract_digits(map_name)
+                if level.intertext:
+                    #skokoVchodov = skokoEnters(level.next, level_dict)
+                    uniqueEnters = skokoEnters(level.next, level_dict)
+                    
+                    if uniqueEnters == 1:
+                        clustertemp = extract_digits(level.next)
+                        #if not clustertemp in clusterdict.keys():
+                        newcluster = clusterdict.get(clustertemp, cluster_t())    
+                        levelnext = level_dict.get(level.next)
+                        
+                        newcluster.flat = level.interbackdrop or newcluster.flat or 'FLOOR4_8'
+                        newcluster.enter = level.intertext
+                        newcluster.music = level.intermusic or newcluster.music
+                        clusterdict[clustertemp] = newcluster
+                        levelnext.cluster = clustertemp
+                    else:
+                        um2miWarnings += f'level {level.next} has {uniqueEnters} enters with unique texts\n'
+                        
+                if level.intertextsecret:
+                    uniqueEnters = skokoEnters(level.nextsecret, level_dict)
+                    
+                    if uniqueEnters == 1:
+                        clustertemp = extract_digits(level.nextsecret)
+                        newcluster = clusterdict.get(clustertemp, cluster_t())
+                        levelnextsecret = level_dict.get(level.nextsecret)
+                        
+                        newcluster.flat = level.interbackdrop or newcluster.flat or 'FLOOR4_8'
+                        newcluster.enter = level.intertextsecret
+                        newcluster.music = level.intermusic or newcluster.music
+                        clusterdict[clustertemp] = newcluster
+                        levelnextsecret.cluster = clustertemp                      
+                    else:
+                        um2miWarnings += f'secret level {level.nextsecret} has {uniqueEnters} enters with unique texts\n'
+
+
+
+
+            
 
             if level.episode:
                 #print(repr(level.episode))
@@ -2692,7 +2778,7 @@ def reflect_umapinfo2(level_dict):
 
         
 def main():
-    global EPISMAS
+    global EPISMAS, um2miWarnings
     if len(argv) < 2:
         if os.path.exists(PATIENT):
             filename = PATIENT
@@ -2716,6 +2802,7 @@ def main():
     reflect_umapinfo2(level_dict)
     #print(*vivod)
     print(''.join(vivod))
+    print(um2miWarnings)
     
 
 if __name__ == "__main__":
