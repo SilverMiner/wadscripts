@@ -4,7 +4,7 @@
 #15:45 16.03.2025 add 3 modes
 #15:34 27.05.2025 LIST ACTIONS
 
-PATIENTA = 'H:\\Games\\gzdoom413\\thewarprc1mapstopatch.wad'
+#PATIENTA = 'H:\\Games\\gzdoom413\\thewarprc1mapstopatch.wad'
 #PATIENTA = "H:\\Games\\dsda262\\Eviternity II RC1.wad"
 #PATIENTA = "H:\\Games\\Doom\\PL2.WAD"
 #PATIENTA = "H:\Games\Doom\VAUMOD\MAPS\MAP01.WAD"
@@ -16,6 +16,7 @@ PATIENTA = 'H:\\Games\\gzdoom413\\thewarprc1mapstopatch.wad'
 #PATIENTA = "H:/Games/Doom/300lnmas.wad"
 #PATIENTA = "H:/Games/Doom/SNOWBALL INSANITY [WINNKAR].wad"
 #PATIENTA = "H:/Games/Doom/nt2f.wad"
+PATIENTA = 'H:/Games/Doom/The Warp RC1.wad'
 PATIENTB = "H:/Games/Doom/DOOM2.wad"
 anim_speeds = []
 SECTYPE2NAMES = {
@@ -268,7 +269,9 @@ def genFSGLOBAL():
         if len(mbf21uniq) < 2:
             xlatHackPossible = True
         else:
-            warnings += f'//{name} has 2 types of sky exits\n'
+            temp271 = f'//{name} has 2 types of sky exits\n'
+            warnings += temp271
+            xlatStream += temp271
             
         lnum = int(name[3:])
         
