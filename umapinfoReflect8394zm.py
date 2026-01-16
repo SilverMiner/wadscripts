@@ -10,7 +10,7 @@ import copy, os
 #nado i takije umet chendlit
 
 #PATIENT = "H:/Games/Doom/UMAPINFO300lnmas.txt"
-PATIENT = "H:/Games/Doom/nt2fRC1texts/UMAPINFO.txt"
+PATIENT = "H:/Games/gzdoom413/thewarptexts/UMAPINFO.txt"
 um2miWarnings = ''
 # глобальный буфер, в который будет складываться весь вывод
 vivod = []
@@ -2560,8 +2560,38 @@ def parse_file_robust(filename):
     
     return {}
 
-
 def skokoEnters(levelstr, level_dict):
+    lvlnexts.clear()
+    lvlsecrets.clear()
+    
+    #print2(f"\n=== DEBUG skokoEnters для {levelstr} ===")
+    
+    for lvlname, level in level_dict.items():
+        if level.next == levelstr:
+            #print2(f"  Найдено через level.next: {lvlname}, intertext: '{level.intertext}'")
+            lvlnexts.append(level)
+        if level.nextsecret == levelstr:
+            #print2(f"  Найдено через level.nextsecret: {lvlname}, intertextsecret: '{level.intertextsecret}'")
+            lvlsecrets.append(level)
+    
+    uniqueInterTexts = set()
+    
+    for sok in lvlnexts:
+        if sok.intertext:
+            #print2(f"  Добавляю intertext из {sok.name}: '{sok.intertext}'")
+            uniqueInterTexts.add(sok.intertext)
+            
+    for sok in lvlsecrets:
+        if sok.intertextsecret:
+            #print2(f"  Добавляю intertextsecret из {sok.name}: '{sok.intertextsecret}'")
+            uniqueInterTexts.add(sok.intertextsecret)
+    
+    #print2(f"  Уникальных текстов: {len(uniqueInterTexts)}")
+    #print2(f"  === КОНЕЦ DEBUG ===\n")
+    
+    return len(uniqueInterTexts)
+
+def skokoEnters2(levelstr, level_dict):
     #levelnext = level_dict.get(levelstr)
     
     for lvlname, level in level_dict.items():
@@ -2576,8 +2606,8 @@ def skokoEnters(levelstr, level_dict):
     for sok in lvlsecrets:
         uniqueInterTexts.add(sok.intertextsecret)
 
-    #if len(uniqueInterTexts) == 1:
-        #return 1
+    if len(uniqueInterTexts) > 1:
+        print(uniqueInterTexts)
     return len(uniqueInterTexts)
     
     
@@ -2685,6 +2715,7 @@ def reflect_umapinfo2(level_dict):
                         levelnext.cluster = clustertemp
                     else:
                         um2miWarnings += f'level {level.next} has {uniqueEnters} enters with unique texts\n'
+                        #print(uniqueEnters)
                         
                 if level.intertextsecret:
                     uniqueEnters = skokoEnters(level.nextsecret, level_dict)
@@ -2701,6 +2732,7 @@ def reflect_umapinfo2(level_dict):
                         levelnextsecret.cluster = clustertemp                      
                     else:
                         um2miWarnings += f'secret level {level.nextsecret} has {uniqueEnters} enters with unique texts\n'
+                        #print(uniqueEnters)
 
 
 
