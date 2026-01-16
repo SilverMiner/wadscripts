@@ -4,7 +4,7 @@
 #15:45 16.03.2025 add 3 modes
 #15:34 27.05.2025 LIST ACTIONS
 
-#PATIENTA = 'H:\\Games\\gzdoom413\\thewarprc1mapstopatch.wad'
+PATIENTA = 'H:\\Games\\gzdoom413\\thewarprc1mapstopatch.wad'
 #PATIENTA = "H:\\Games\\dsda262\\Eviternity II RC1.wad"
 #PATIENTA = "H:\\Games\\Doom\\PL2.WAD"
 #PATIENTA = "H:\Games\Doom\VAUMOD\MAPS\MAP01.WAD"
@@ -15,7 +15,7 @@
 #PATIENTA = "H:/Games/Doom/AdMortem_v1.5.6.wad"
 #PATIENTA = "H:/Games/Doom/300lnmas.wad"
 #PATIENTA = "H:/Games/Doom/SNOWBALL INSANITY [WINNKAR].wad"
-PATIENTA = "H:/Games/Doom/nt2f.wad"
+#PATIENTA = "H:/Games/Doom/nt2f.wad"
 PATIENTB = "H:/Games/Doom/DOOM2.wad"
 anim_speeds = []
 SECTYPE2NAMES = {
@@ -32,6 +32,7 @@ SECTYPE3NAMES = {
     }
 
 warnings = ''
+xlatStream = '' #22:19 16.01.2026
 
 from sys import argv
 from omg import *
@@ -67,6 +68,9 @@ sitoflatglobal = {}
 sitoheightglobal = {}
 heightglobal = {}
 
+#21:10 16.01.2026
+mbf21uniqueglobal = {}
+
 
 #BRANCHES 18:48 30.05.2025
 indexglobal = {}
@@ -85,7 +89,8 @@ def findmbf21lines(map):
             break
 
 def problemnyj(sec):
-    da = sec.tx_floor == 'F_SKY1' and sec.type & 4096 and sec.tag == 0
+    #4096 i 4128 ne problemnije. 4160 i 4192 problemnije
+    da = sec.tx_floor == 'F_SKY1' and sec.type & 4096 and sec.type & 64 and sec.tag == 0
     return da
 
 mbf21Stream = ''
@@ -95,6 +100,7 @@ def findmbf21sectors(map, name):
     mbf21lines = {}
     
     mbf21secs = set()
+    mbf21unique = set() #21:06 16.01.2026
     sitotype = {}
     sitoflat = {}
     chaska = {}
@@ -110,12 +116,14 @@ def findmbf21sectors(map, name):
     maxheight = -32768
 
     ed = MapEditor(map)
+    '''
     for ld in ed.linedefs:
         #if ld.action>=1024 and ld.action<=1026:
         if ld.flags&4096 or ld.flags&8192:
             mbf21lines[ld.flags]=name
     for key, value in mbf21lines.items():
         warnings += f'//{value} has {key}\n'
+    '''
         
     for si, sec in enumerate(ed.sectors):
         warndone = False
@@ -134,10 +142,12 @@ def findmbf21sectors(map, name):
             chaska[sec.tag] = {sec.type}
 
         if sec.type & 8192:
-            warnings += '//' + name + f'{ed.sectors[si].type} si:{si} tag:{ed.sectors[si].tag}\n'
+            warnings += '//' + name + f' {ed.sectors[si].type} si:{si} tag:{ed.sectors[si].tag}\n'
             
         if sec.type & 4096:
             mbf21secs.add(si)
+            if sec.tx_floor == 'F_SKY1':
+                mbf21unique.add(sec.type & 4192)
             if not warndone:
                 warnings += '//' + name + f' {SECTYPE3NAMES.get((ed.sectors[si].type & 0x60) >> 5)} {ed.sectors[si].type} si:{si} tag:{ed.sectors[si].tag}\n'
             #if (sec.type & 0x60) >> 5 < 2:
@@ -170,16 +180,18 @@ def findmbf21sectors(map, name):
             sitoflat[si]=ed.sectors[si].tx_floor
             bindex.add(si)
             flatsonmbf21secs.add(ed.sectors[si].tx_floor)
-            #if ed.sectors[si].tx_floor in anim_good:
-            #    animStream += doAnimEntry(l)
                 
-            
-
     yetindices = mbf21secs - bindex
     for i3 in yetindices:
         btag.add(ed.sectors[i3].tag)
-    #btag = []
-    
+
+    if bindex & btag:
+        print('achtung')
+        exit(0)
+
+    for x in (4096, 4128):
+        mbf21unique.discard(x)
+    warnings += '//' + name + f' {mbf21unique}\n'
 
     if bindex: indexglobal[name] = sorted(bindex)
     if btag: tagglobal[name] = sorted(btag)
@@ -187,6 +199,7 @@ def findmbf21sectors(map, name):
     if sitoflat: sitoflatglobal[name] = sitoflat
     if sitoheight: sitoheightglobal[name] = sitoheight
     heightglobal[name] = minheight, maxheight
+    if mbf21unique: mbf21uniqueglobal[name] = mbf21unique
     
 
                 
@@ -244,10 +257,19 @@ scriptStream = (
 #17:30 28.12.2025 opiszu a to ja zabyl:
 #jest localnyje slovari, a jest globalnyje
 def genFSGLOBAL():
-    global scriptStream, warnings
+    global scriptStream, warnings, xlatStream
     for name in mapnames:
         heightHackNotUsed = True
         #xlatHackNotUsed = True
+        xlatHackPossible = False
+        hacksectypes = set() #22:04 16.01.2026
+        
+        mbf21uniq = mbf21uniqueglobal.get(name, set())
+        if len(mbf21uniq) < 2:
+            xlatHackPossible = True
+        else:
+            warnings += f'//{name} has 2 types of sky exits\n'
+            
         lnum = int(name[3:])
         
         
@@ -267,26 +289,60 @@ def genFSGLOBAL():
                          '{\n'
                          )
         for si in bindex:
-            typea = (sitotype.get(si, 0)&0x60)>>5
+            situpeja = sitotype.get(si, 0)
+            typea = (situpeja & 0x60) >> 5
             flatone = sitoflat.get(si, '')
-            if not (typea < 2 and flatone == 'F_SKY1'):
+            
+            # Основной случай - не sky или не тот тип
+            if typea > 1 and flatone != 'F_SKY1':
                 scriptStream += getdonebyindex(si, typea, flatone)
-            elif flatone == 'F_SKY1' and sitotype.get(si, 0) in [4096,4128]:
-                #xlat razberetsae
-                warnings += '//' + name + ' ' + str(si) + 'deadly sky should be resolved by xlat\n'
-            elif flatone == 'F_SKY1' and heightHackNotUsed:
-                if maxheight<=minheight:
-                    warnings += '//' + name + ' ' + str(si) + 'deadly sky resolved\n'
-                    scriptStream += f'while(1==1)\
-{{ if (trigger.objz <= {maxheight})\
-{{\
-trigger.kill;\
-}}\
-wait(20);\
-}}\n'
-                    heightHackNotUsed = False
-                else:
-                    warnings += '//' + name + ' ' + str(si) + 'deadly sky UNRESOLVABLE\n'
+                continue
+            
+            # Обработка F_SKY1 с typea < 2
+            if flatone == 'F_SKY1':
+                
+                #if situpeja & 4096 or situpeja & 4128:
+                if typea < 2:
+                    pass
+                    #warnings += f'//{name} {si} deadly sky should be resolved by xlat\n'
+                elif typea == 2:
+                    warnings += f'//{name} {si} normal exit sky\n'
+                elif typea == 3:
+                    warnings += f'//{name} {si} secret exit sky\n'
+
+                if typea > 1 and xlatHackPossible and situpeja not in hacksectypes:
+                    #warnings += f'//{name} XLAT HACK SKY {"SECRET" if typea == 3 else "NORMAL"}EXIT\n\
+#//sector {situpeja} = dDamage_LavaWimpy\n'
+                    hacksectypes.add(situpeja)
+                    xlatStream += f'//{name} XLAT HACK sector {situpeja} = dDamage_LavaWimpy;\n'
+                    xlatStream += f'//501 = WALK|REP,Exit_{"Normal" if typea == 2 else "Secret"} (0)\n'
+                    continue
+                    
+                
+                if typea > 1 and heightHackNotUsed and not xlatHackPossible:
+                    if maxheight <= minheight:
+                        warnings += f'//{name} {si} {situpeja} HEIGHT HACK APPLIED\n'
+                        if typea == 2:
+                            scriptStream += f'''while(1==1) {{
+                    if (trigger.objz <= {maxheight}) {{
+                        exitlevel();
+                    }}
+                    wait(20);
+                }}
+                '''
+                            heightHackNotUsed = False
+                        elif typea == 3:
+                            scriptStream += f'''while(1==1) {{
+                    if (trigger.objz <= {maxheight}) {{
+                        exitsecret();
+                    }}
+                    wait(20);
+                }}
+                '''
+                            heightHackNotUsed = False
+                        
+                    else:
+                        warnings += f'//{name} {si} deadly sky UNRESOLVABLE\n'
                 
             
         for tag in btag:
@@ -439,7 +495,7 @@ def doAnimEntry(word, wordHashed, x):
     
 
 def main(args):
-    global pattern,mode,scriptStream,terrainflats,terrainneedglobal,anim_good,anim_ranges,animStream,anim_speeds,mbf21Stream,texStream
+    global pattern,mode,scriptStream,terrainflats,terrainneedglobal,anim_good,anim_ranges,animStream,anim_speeds,mbf21Stream,texStream,xlatStream
     inwad = WAD()
     #outwad = WAD()
 	#0:45 28.12.2025
@@ -463,25 +519,23 @@ def main(args):
     #print(list(inwad.flats),'\n\n\n')
     #pwadflatlist=iwadflatlist+list(inwad.flats)
     #23:41 10.01.2026 Бляха муха а ведь если ресурсник имеет новую скажем водичку, то анимдефс пойдёт по пизде
-    pwadflatlist = [flat for flat in iwadflatlist if flat not in list(inwad.flats)] + list(inwad.flats)
-    anim_lump = inwad.data['ANIMATED'].data
-    anim_parsed = parse_animated_lump(anim_lump)
-    anim_ranges = [(start.decode('ascii'), end.decode('ascii'), speed) for start, end, speed in anim_parsed]
-    #print(anim_ranges)
-
     
-
-    for start_name, end_name, sped in anim_ranges:
-        try:
-            start_idx = pwadflatlist.index(start_name)
-            end_idx = pwadflatlist.index(end_name)
-            
-            # Добавляем все элементы между start_idx и end_idx включительно
-            anim_good.extend(pwadflatlist[start_idx:end_idx + 1])
-            anim_speeds.extend([sped] * (end_idx - start_idx + 1))
-        except ValueError:
-            # Если какого-то из элементов нет в списке, пропускаем
-            continue
+    pwadflatlist = [flat for flat in iwadflatlist if flat not in list(inwad.flats)] + list(inwad.flats)
+    if 'ANIMATED' in inwad.data.keys():
+        anim_lump = inwad.data['ANIMATED'].data
+        anim_parsed = parse_animated_lump(anim_lump)
+        anim_ranges = [(start.decode('ascii'), end.decode('ascii'), speed) for start, end, speed in anim_parsed]
+        for start_name, end_name, sped in anim_ranges:
+            try:
+                start_idx = pwadflatlist.index(start_name)
+                end_idx = pwadflatlist.index(end_name)
+                
+                # Добавляем все элементы между start_idx и end_idx включительно
+                anim_good.extend(pwadflatlist[start_idx:end_idx + 1])
+                anim_speeds.extend([sped] * (end_idx - start_idx + 1))
+            except ValueError:
+                # Если какого-то из элементов нет в списке, пропускаем
+                continue
 
     # Убираем дубликаты, если диапазоны пересекаются
     #anim_good = list(dict.fromkeys(anim_good))
@@ -490,11 +544,12 @@ def main(args):
 
     #18:36 11.01.2026 razrulivanije widescreen stbarov
     #stbar = inwad.data["STBAR"]
-    stbar = inwad.graphics["STBAR"]
-    if stbar.width!=320:
-        texStream += f'Texture "STBAR", {stbar.width}, {stbar.height}\n\
-{{\nOffset {stbar.width//2-160}, {stbar.height//2-16}\n\
-Patch "STBAR", 0, 0\n}}\n'
+    if "STBAR" in inwad.graphics.keys():
+        stbar = inwad.graphics["STBAR"]
+        if stbar.width!=320:
+            texStream += f'Texture "STBAR", {stbar.width}, {stbar.height}\n\
+    {{\nOffset {stbar.width//2-160}, {stbar.height//2-16}\n\
+    Patch "STBAR", 0, 0\n}}\n'
     
     if (len(args) >= 3):
             for arg in args[2:]:
@@ -539,6 +594,7 @@ Patch "STBAR", 0, 0\n}}\n'
 
     print(warnings)
     print(mbf21Stream)
+    print(xlatStream)
     
     
 
