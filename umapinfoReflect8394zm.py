@@ -10,7 +10,7 @@ import copy, os
 #nado i takije umet chendlit
 
 #PATIENT = "H:/Games/Doom/UMAPINFO300lnmas.txt"
-PATIENT = "H:/Games/gzdoom413/thewarptexts/UMAPINFO.txt"
+PATIENT = "H:/Games/Doom/UMAPINFO (3)admorte.txt"
 um2miWarnings = ''
 # глобальный буфер, в который будет складываться весь вывод
 vivod = []
@@ -2297,6 +2297,7 @@ def parse_levels_robust(filename):
                             key_part, value_part = stripped_line.split('=', 1)
                             key = key_part.strip().lower()
                             value = value_part.strip()
+                            # Обработка специальных полей end*
                             if key.startswith('end'):
                                 if key == 'endpic':
                                     level.set_field_value('endkok', value)
@@ -2307,8 +2308,30 @@ def parse_levels_robust(filename):
                                 else:
                                     level.set_field_value('endkok', '!')
                             
-                            # Проверяем, начинается ли значение с кавычки
-                            elif value.startswith('"') and key != 'episode' and key != 'bossaction':
+                            # Если значение пустое или его нет в текущей строке
+                            elif not value or value == '':
+                                # Ищем значение на следующей строке
+                                found_value = False
+                                j = i + 1
+                                while j < len(lines):
+                                    next_line = lines[j].rstrip('\n').strip()
+                                    # Пропускаем пустые строки и комментарии
+                                    if not next_line or next_line.startswith('//'):
+                                        j += 1
+                                        continue
+                                    
+                                    # Нашли следующую непустую строку - это значение
+                                    value = next_line
+                                    found_value = True
+                                    i = j  # Переходим к строке со значением
+                                    break
+                                
+                                if not found_value:
+                                    # Если так и не нашли значение, оставляем пустым
+                                    value = ''
+                            
+                            # Теперь обрабатываем найденное значение
+                            if value.startswith('"') and key != 'episode' and key != 'bossaction':
                                 # Если значение заканчивается кавычкой в той же строке
                                 if value.endswith('"') and not value.endswith('",'):
                                     # Простое строковое значение
@@ -2770,19 +2793,6 @@ def reflect_umapinfo2(level_dict):
 ##                или можно не менять
 
                 if field_name in BLUSET:
-                    '''
-                    if 0 and level.endkok and field_name in ['next','nextsecret']:
-                        #for whatNext in ['next','secret']:
-                        whatNext = 'secret' if field_name == 'nextsecret' else 'next'
-                        if level.endkok == '$CAST':
-                            print2(f'    {whatNext} = EndGameC')
-                        elif level.endkok == '$BUNNY':
-                            print2(f'    {whatNext} = EndBunny')
-                        elif level.endkok == '!':
-                            print2(f'    {whatNext} = EndGame1')
-                        else:
-                            print2(f'    {whatNext} = endsequence, vauinter_{interIndex}')
-                    '''
                     if level.endkok and field_name in ['next','nextsecret']:
                         field_name2 = BLUDICT.get(field_name,field_name)
                         print2(f'    {field_name2} = {value}')
@@ -2830,7 +2840,38 @@ def main():
         print2(f"Ошибка при обработке файла: {e}")
         import traceback
         traceback.print_exc()
-    print2('defaultmap\n{\ntranslator = dehsupp\n}\n')    
+    print2('defaultmap\n{\ntranslator = dehsupp\n')
+    print2('''compat_corpsegibs = 0
+	compat_noblockfriends = 1
+	compat_limitpain = 0
+	compat_mbfmonstermove = 1
+	compat_crossdropoff = 0
+	compat_dropoff = 0
+	compat_invisibility = 0
+	compat_minotaur = 0
+	compat_notossdrops = 1 //15:51 08.12.2025
+	compat_dehhealth = 0
+	compat_mushroom = 1
+	compat_useblocking = 0
+	compat_anybossdeath = 0
+	compat_nodoorlight = 0
+	compat_light = 0
+	compat_shorttex = 0
+	compat_stairs = 0
+	compat_floormove = 0
+	compat_boomscroll = 1
+	compat_badangles = 0
+	compat_ravenscroll = 0
+	compat_trace = 1
+	compat_missileclip = 1
+	compat_polyobj = 0
+	compat_maskedmidtex = 1
+	compat_spritesort = 0
+	compat_silent_instant_floors = 0
+	compat_sectorsounds = 0
+	compat_soundtarget = 1
+}
+	''')
     reflect_umapinfo2(level_dict)
     #print(*vivod)
     print(''.join(vivod))
