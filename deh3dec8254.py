@@ -17,9 +17,23 @@ MT_CHAINGUY = 11
 THELOOPS = ['spawn','see', 'pain', 'melee', 'missile', 'death', 'xdeath', 'raise']
 hasChase = set()
 hasToBeSeeker = set()
+
 #18:07 12.01.2026
 isSplashSource = set()
-
+#9:31 17.01.2026
+bloodColorDict = {
+    0: 'Red',
+    1: 'Gray',
+    2: 'Green',
+    3: 'blue2',#'4B94AF',
+    4: 'Yellow',
+    5: 'Black',
+    6: 'Purple',
+    7: 'White',
+    8: 'Orange',
+    }
+#10:03 17.01.2026
+hasVileAttack = set()
 
 
 vivod=''
@@ -37,7 +51,8 @@ wha = 'H:\\Compilers\\dehacked2decorate\\BaseTables\\'
 #patient = "H:/Games/Doom/DEHACKEDSNOWBALL INSANITY [WINNKAR].txt"
 #patient = "H:/Games/Doom/DEHACKEDnt2fv5.txt"
 #patient = "H:/Games/Doom/DEHACKEDid1.txt"
-patient = "H:/Games/Doom/nt2fRC1texts/DEHACKED.txt"
+#patient = "H:/Games/Doom/nt2fRC1texts/DEHACKED.txt"
+patient = "H:/Games/Doom/DEHACKED300lnmas.txt"
 files = ['base_states2.dat','base_things.dat']
 labelDict = {}
 
@@ -624,44 +639,6 @@ class state_t(ourbase_t):
         if self.args is None:
             self.args = [0] * 8
 
-
-'''    
-@dataclass
-class thing_t(ourbase_t):
-    doomednum: int = 0
-    spawnstate: int = 0
-    spawnhealth: int = 0
-    seestate: int = 0
-    seesound: int = 0
-    reactiontime: int = 0
-    attacksound: int = 0
-    painstate: int = 0
-    painchance: int = 0
-    painsound: int = 0
-    meleestate: int = 0
-    missilestate: int = 0
-    deathstate: int = 0
-    xdeathstate: int = 0
-    deathsound: int = 0
-    speed: int = 0
-    radius: int = 0
-    height: int = 0
-    mass: int = 0
-    damage: int = 0
-    activesound: int = 0
-    flags: int = 0
-    flags2: int = 0
-    raisestate: int = 0
-    droppeditem: int = 0
-    infighting_group: int = 0
-    projectile_group: int = 0
-    splash_group: int = 0
-    flags21: int = 0
-    ripsound: int = 0
-    altspeed: int = 0
-    meleerange: int = 0
-    bloodcolor: int = 0
-'''
 @dataclass
 class thing_t(ourbase_t):
     doomednum: int = -1
@@ -1074,7 +1051,7 @@ def tsizeeval(filelines):
     wtsize+=1
 #19:39 25.05.2025 desultory bug fix (when dehacked has less stuff than basetables)
 
-    print(ttsize,stsize,wtsize)
+    print('//',ttsize,stsize,wtsize)
 
     stsize = max(1076, stsize)
     ttsize = max(147, ttsize)
@@ -1189,7 +1166,7 @@ def tsizeeval2(filelines):
     ttsize+=1
     wtsize+=1
     
-    print(ttsize,stsize,wtsize)
+    print('//',ttsize,stsize,wtsize)
     
     # Минимальные размеры таблиц
     stsize = max(1076, stsize)
@@ -1233,6 +1210,9 @@ def initbasetables():
     tt[MT_POSSESSED].droppeditem = MT_CLIP
     tt[MT_SHOTGUY].droppeditem = MT_SHOTGUN
     tt[MT_CHAINGUY].droppeditem = MT_CHAINGUN
+    #9:48 17.01.2026
+    #mobjinfo[MT_VILE].flags21 = MF2_SHORTMRANGE | MF2_DMGIGNORED | MF2_NOTHRESHOLD
+    
     
     for v in range(len(WEAPONTABLE)):
         w = WEAPONTABLE[v]
@@ -1379,6 +1359,11 @@ def doAction(state):
         hasChase.add(curactor.index)
         expr = (
             f'A_Chase'
+            )
+    elif action == 'VileAttack':
+        expr = (
+            f'A_VileAttack("vile/stop", 20, 70, 70, 1.0, "none", 0)'
+            #10:00 17.01.2026 chtoby ne bylo Fire, a to thewarpzd.pk3 konczajet uroven
             )
 #23:25 11.01.2026
 #Chase byl dlae zajki v 300lnmas, a Fire budet dlae nt2f
@@ -1677,7 +1662,7 @@ def compnmod():
     for pair in TPAIRS:
         lentable = len(pair[0])
         structlen = len(pair[0][0])
-        print(lentable,structlen)
+        print('//',lentable,structlen)
         for structnum in range(lentable):
             for fieldnum in range(structlen):
                 if pair[0][structnum][fieldnum]!=pair[1][structnum][fieldnum]:
@@ -1947,8 +1932,8 @@ def decorateStates(actor):
     #    print(StateLoops)
     statesStream+=("\t}\n")
     #21:58 26.12.2025
-    if curactor.index in [12,24]:
-        print('//', StateLoops, loopFrames)
+    #if curactor.index in [12,24]:
+    #    print('//', StateLoops, loopFrames)
     return statesStream
 
 
@@ -2231,7 +2216,8 @@ def getProperties(actor):
         actor.reactiontime,
         actor.painchance,
         actor.mass,
-        #actor.droppeditem
+        #actor.droppeditem,
+        actor.altspeed,
         ]
 def getSounds(actor):
     return [
@@ -2252,7 +2238,8 @@ NUM2PROPERTIES = {
 6: 'ReactionTime',
 7: 'PainChance',
 8: 'Mass',
-#9: 'DropItem'
+#9: 'DropItem',
+9: 'FastSpeed',
 }
 
 NUM2SOUNDS = {
@@ -2327,10 +2314,17 @@ def decorateActor(actor, iswepen = 0):
             #p2 = p // 65536 if i >= 3 and i <= 4 else p
             p2 = p // 65536 if (
                 (i>=3 and i<=4)
-                or (i==2 and (actornew.flags & 0x00010000))
+                or (i==2 and (actornew.flags & 0x00010000)
+                    or i==9)
                 ) else p
             
             daStream += NUM2PROPERTIES.get(i,-1)+f' {p2}\n'
+            
+    #9:18 17.01.2026
+    if actornew.bloodcolor != actorold.bloodcolor:
+        temp2311 = min(max(0, actornew.bloodcolor), 8)
+        item_name = BloodColorDict.get(actornew.bloodcolor,'Red')
+        daStream += f'BloodColor "{item_name}"\n'
 
     #20:39 26.12.2025
     if actornew.droppeditem != actorold.droppeditem:
@@ -2596,8 +2590,8 @@ def getLoop(state_value, state_array):
         if state_value in jumpOuts:
             print('Getloop: ',state_value)
 
-    if state_value == 442:
-        print('//dubuga guga ', state_loop)
+    #if state_value == 442:
+    #    print('//dubuga guga ', state_loop)
     return state_loop
 
 #10:37 27.12.2025
@@ -2680,6 +2674,10 @@ st0 = copy.deepcopy(st)
 tt0 = copy.deepcopy(tt)
 wt0 = copy.deepcopy(wt)
 
+#10:08 17.01.2026 VileAttack Hack
+st0[264].misc1 = 42
+st0[264].misc2 = 69
+
 #3.5 Add +NOBLOCKMONST to those who fly? 17:59 04.06.2025
 
 #4. Get blocks, parse blocks, get frame actions.
@@ -2700,7 +2698,7 @@ forDecActors()
 #print(jumppoints)
 #print(jumpEnters)
 #print(jumpOuts)
-print(labelDict)
+#print(labelDict)
 
 #print(cc)
 '''
@@ -2721,10 +2719,10 @@ for key,value in sfxAliases.items():
         vivod+='dehextra/sound'+str(key2)+' '+str(value)+'\n'
 vivod+='*/'
 print(vivod)
-if labelStream:
-    print(labelStream)
-else:
-    print("//labelsGood")
+#if labelStream:
+#    print(labelStream)
+#else:
+#    print("//labelsGood")
 
 if languageStream:
     print('//LANGUAGE START', languageStream,'//LANGUAGE END', sep = '\n')
