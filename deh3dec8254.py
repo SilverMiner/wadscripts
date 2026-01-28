@@ -13,7 +13,6 @@ MT_WOLFSS = 24
 MT_POSSESSED = 2
 MT_SHOTGUY = 3
 MT_CHAINGUY = 11
-#THELOOPS = ['spawnloop','seeloop', 'painloop', 'meleeloop', 'missileloop', 'deathloop', 'xdeathloop', 'raiseloop']
 THELOOPS = ['spawn','see', 'pain', 'melee', 'missile', 'death', 'xdeath', 'raise']
 hasChase = set()
 hasToBeSeeker = set()
@@ -52,7 +51,8 @@ wha = 'H:\\Compilers\\dehacked2decorate\\BaseTables\\'
 #patient = "H:/Games/Doom/DEHACKEDnt2fv5.txt"
 #patient = "H:/Games/Doom/DEHACKEDid1.txt"
 #patient = "H:/Games/Doom/nt2fRC1texts/DEHACKED.txt"
-patient = "H:/Games/Doom/DEHACKED300lnmas.txt"
+#patient = "H:/Games/Doom/DEHACKED300lnmas.txt"
+patient = "H:/Games/Doom/dehackedAnomalyDeimos11.txt"
 files = ['base_states2.dat','base_things.dat']
 labelDict = {}
 
@@ -60,6 +60,10 @@ sprAliases = {}
 
 #1:28 21.06.2025
 sfxAliases = {}
+#21:59 27.01.2026
+sfxUsed = set()
+
+
 
 curwepnammotype = -1
 curwepnammouse = -1
@@ -852,11 +856,52 @@ def extract_after_eq(line):
 def make_get_int(data):
     def get_int(key, default=0):
         value = data.get(key, str(default)).strip()
+        
+        # Если это поле с флагами
+        if key in ["Bits", "MBF21 Bits"] and (value.isalpha() or '+' in value or '-' in value):
+            total_flags = 0
+            
+            # Определяем, какой словарь флагов использовать
+            flag_dict = MBFFLAGS if key == "Bits" else MBF21FLAGS
+            
+            # Разбиваем строку на части (учитываем пробелы и плюсы)
+            # Пример: "SHOOTABLE+SOLID+COUNTKILL" или "NOGRAVITY+NOSECTOR+NOBLOCKMAP"
+            if '+' in value:
+                parts = value.split('+')
+            else:
+                parts = value.split()
+            
+            for part in parts:
+                part = part.strip()
+                
+                # Пропускаем пустые части
+                if not part:
+                    continue
+                    
+                # Если начинается с '-', это удаление флага
+                if part.startswith('-'):
+                    flag_name = part[1:]
+                    # Находим значение флага и сбрасываем его
+                    for flag_value, fname in flag_dict.items():
+                        if fname == flag_name:
+                            total_flags &= ~flag_value
+                            break
+                else:
+                    # Ищем флаг в словаре
+                    for flag_value, flag_name in flag_dict.items():
+                        if flag_name == part:
+                            total_flags |= flag_value
+                            break
+            
+            return total_flags
+        
+        # Стандартная обработка чисел
         try:
             return int(value)
         except ValueError:
             print(f"Ошибка при чтении [{key}]: '{value}' — не число")
             return default
+    
     return get_int
 
 def block_header_try(line):
@@ -2218,6 +2263,7 @@ def getProperties(actor):
         actor.mass,
         #actor.droppeditem,
         actor.altspeed,
+        actor.meleerange,
         ]
 def getSounds(actor):
     return [
@@ -2240,6 +2286,7 @@ NUM2PROPERTIES = {
 8: 'Mass',
 #9: 'DropItem',
 9: 'FastSpeed',
+10: 'MeleeRange'
 }
 
 NUM2SOUNDS = {
@@ -2315,7 +2362,7 @@ def decorateActor(actor, iswepen = 0):
             p2 = p // 65536 if (
                 (i>=3 and i<=4)
                 or (i==2 and (actornew.flags & 0x00010000)
-                    or i==9)
+                    or i==9 or i==10)
                 ) else p
             
             daStream += NUM2PROPERTIES.get(i,-1)+f' {p2}\n'
@@ -2323,8 +2370,18 @@ def decorateActor(actor, iswepen = 0):
     #9:18 17.01.2026
     if actornew.bloodcolor != actorold.bloodcolor:
         temp2311 = min(max(0, actornew.bloodcolor), 8)
-        item_name = BloodColorDict.get(actornew.bloodcolor,'Red')
+        item_name = BloodColorDict.get(temp2311,'Red')
         daStream += f'BloodColor "{item_name}"\n'
+        
+    #SfxAliases
+    #21:54 27.01.2026
+    for sfxi in ['seesound', 'attacksound', 'painsound', 'deathsound', 'activesound']:
+        new_value = getattr(actornew, sfxi)
+        old_value = getattr(actorold, sfxi)
+        
+        if new_value != old_value:
+            sfxUsed.add(new_value)
+        
 
     #20:39 26.12.2025
     if actornew.droppeditem != actorold.droppeditem:
@@ -2712,12 +2769,31 @@ print(vivod, len(decactors))
 #version 52 lol
 #print('/*')
 vivod+='/*\n'
+
+sfxDisca = set()
 for key,value in sfxAliases.items():
     
     if key>=500:
         key2 = key - 500
-        vivod+='dehextra/sound'+str(key2)+' '+str(value)+'\n'
+        vivod+='dehextra/sound'+f'{key2:03d}'+' '+str(value)+'\n'
+        sfxDisca.add(key)
+        
+
+
+sfxDefault = sfxUsed - sfxDisca
+
+for key in sfxDefault:
+    if key>=500:
+        key2 = key - 500
+        value = 'dsfre' + f'{key2:03d}'
+        vivod+='dehextra/sound'+f'{key2:03d}'+' '+str(value)+'\n'
+
 vivod+='*/'
+
+
+#for kok in SfxUsed:
+#    gug = sfxAliases.get(kok, )
+
 print(vivod)
 #if labelStream:
 #    print(labelStream)
@@ -2725,11 +2801,12 @@ print(vivod)
 #    print("//labelsGood")
 
 if languageStream:
-    print('//LANGUAGE START', languageStream,'//LANGUAGE END', sep = '\n')
+    print('//LANGUAGE START','[enu default]\n', languageStream,'//LANGUAGE END', sep = '\n')
 
 #print('*/')
 #if __name__ == "__main__":
 #	main(argv[1:])
 
 #18:38 24.12.2025 todo: see states are evaluated as "0" in case of 300 lines christmas dehacked
+#21:01 27.01.2026 todo: for anomaly deimos v1.1 i need to parse flags given as a sum of constants
 
