@@ -10,7 +10,9 @@ import copy, os
 #nado i takije umet chendlit
 
 #PATIENT = "H:/Games/Doom/UMAPINFO300lnmas.txt"
-PATIENT = "H:/Games/Doom/UMAPINFO (3)admorte.txt"
+#PATIENT = "H:/Games/Doom/UMAPINFO (3)admorte.txt"
+#PATIENT = "H:/Games/Doom/uacprimetxt/UMAPINFO.txt"
+PATIENT = "H:/Games/Doom/UMAPINFO_For_BootLeg.txt"
 um2miWarnings = ''
 # глобальный буфер, в который будет складываться весь вывод
 vivod = []
