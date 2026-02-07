@@ -5,6 +5,7 @@ from dataclasses import dataclass, fields
 import copy
 #from collections import defaultdict
 #from typing import List
+from enum import Enum
 
 MT_CLIP = 64
 MT_SHOTGUN = 78
@@ -52,7 +53,9 @@ wha = 'H:\\Compilers\\dehacked2decorate\\BaseTables\\'
 #patient = "H:/Games/Doom/DEHACKEDid1.txt"
 #patient = "H:/Games/Doom/nt2fRC1texts/DEHACKED.txt"
 #patient = "H:/Games/Doom/DEHACKED300lnmas.txt"
-patient = "H:/Games/Doom/dehackedAnomalyDeimos11.txt"
+#patient = "H:/Games/Doom/dehackedAnomalyDeimos11.txt"
+#patient = "H:/Games/Doom/uacprimetxt/DEHACKED.txt"
+patient = "H:/Games/Doom/DEHACKED_bootleg.txt"
 files = ['base_states2.dat','base_things.dat']
 labelDict = {}
 
@@ -95,6 +98,7 @@ def getActorName(num):
         return "Deh_Actor_{x}".format(x=num-1)
         
 def getSoundName(num):
+    sfxUsed.add(num)
     DSFX = 'dehextra/sound'
     if num <= 141:
         return ZDOOMSOUNDNAMES[num]
@@ -1030,116 +1034,73 @@ def parse_block(lines, blocktype = thing_t):
     
     return 0
 
+class AliasState(Enum):
+    NONE = 0
+    SPR = 1
+    SFX = 2
+    STR = 3
+    T = 4
+    S = 5
+    W = 6
+    A = 7
+
+inblock = AliasState.NONE
+
 ttsize,stsize,wtsize=0,0,0
-def tsizeeval(filelines):
-    global ttsize,stsize,wtsize, languageStream
-    inSprAliases = False
-    inSfxAliases = False
-    inStrAliases = False
-    for line in filelines:
-        val = extract_number(line)
-        if 'Frame ' in line:
-            stptr = val
-            if val>stsize:
-                stsize=val
-        elif 'Thing ' in line:
-            ttptr = val
-            if val>ttsize:
-                ttsize=val
-        elif 'Weapon ' in line:
-            wtptr = val
-            if val>wtsize:
-                wtsize=val
-        elif '[SOUNDS]' in line:
-            inSfxAliases = True
-            
-        elif '[SPRITES]' in line:
-            inSprAliases = True
-
-        elif '[STRINGS]' in line:
-            inStrAliases = True
-            
-        elif inSfxAliases:
-            if line.strip():
-                linesp = line.split('=')
-                try:
-                    keya = int(linesp[0].strip())
-                    valaa = linesp[1].strip()
-                    sfxAliases[keya]='ds'+valaa
-                except Exception:
-                    inSfxAliases = False
-                    
-        elif inSprAliases:
-            if line.strip():
-                linesp = line.split('=')
-                try:
-                    keya = int(linesp[0].strip())
-                    valaa = linesp[1].strip()
-                    sprAliases[keya]=valaa
-                except Exception:
-                    inSprAliases = False
-                    
-        elif inStrAliases:
-            if line.strip():
-                linesp = line.split('=')
-                try:
-                    keya = linesp[0].strip()
-                    valaa = linesp[1].strip()
-                    languageStream += keya+' = '+valaa+';\n'
-                except Exception:
-                    inSprAliases = False                
-                
-                
-                
-    stsize+=1
-    ttsize+=1
-    wtsize+=1
-#19:39 25.05.2025 desultory bug fix (when dehacked has less stuff than basetables)
-
-    print('//',ttsize,stsize,wtsize)
-
-    stsize = max(1076, stsize)
-    ttsize = max(147, ttsize)
-    wtsize = max(9, ttsize)
 def tsizeeval2(filelines):
-    global ttsize, stsize, wtsize, languageStream
-    inSprAliases = False
-    inSfxAliases = False
-    inStrAliases = False
+    global ttsize, stsize, wtsize, inblock, languageStream
     
     i = 0
     while i < len(filelines):
         line = filelines[i]
         val = extract_number(line)
         
-        if 'Frame ' in line:
+        if line.startswith('Frame '):
             stptr = val
             if val > stsize:
                 stsize = val
-        elif 'Thing ' in line:
+            inblock = AliasState.S
+        elif line.startswith('Thing '):
             ttptr = val
             if val > ttsize:
                 ttsize = val
-        elif 'Weapon ' in line:
+            inblock = AliasState.T
+        elif line.startswith('Weapon '):
             wtptr = val
             if val > wtsize:
                 wtsize = val
+            inblock = AliasState.W
+        elif line.startswith('Ammo '):
+            inblock = AliasState.A
+            
         
         # Обработка блока [STRINGS]
-        elif '[STRINGS]' in line:
-            inStrAliases = True
+        elif line.startswith('[STRINGS]'):
+            inblock = AliasState.STR
             i += 1
             continue
+
+        elif line.startswith('[SOUNDS]'):
+            inblock = AliasState.SFX
+            i += 1
+            continue
+
+        elif line.startswith('[SPRITES]'):
+            inblock = AliasState.SPR
+            i += 1
+            continue        
         
-        elif inStrAliases:
+        elif inblock == AliasState.STR:
             # Пропускаем пустые строки в блоке [STRINGS]
             if not line.strip():
                 i += 1
                 continue
                 
             # Проверяем, не начался ли новый блок
-            if line.strip().startswith('[') and line.strip().endswith(']'):
-                inStrAliases = False
+            if line.strip().startswith('[') and line.strip().endswith(']') or (
+                line.startswith(('Frame ', 'Thing ', 'Weapon ', 'Ammo '))
+                ):
+                inblock = AliasState.NONE
                 i += 1
                 continue
             
@@ -1171,14 +1132,12 @@ def tsizeeval2(filelines):
                 languageStream += key_part + ' = "' + string_value + '";\n'
         
         # Обработка блоков [SOUNDS] и [SPRITES] (остаётся без изменений)
-        elif '[SOUNDS]' in line:
-            inSfxAliases = True
-            i += 1
-            continue
             
-        elif inSfxAliases:
+        elif inblock == AliasState.SFX:
             if not line.strip():
-                inSfxAliases = False
+                i += 1
+                continue
+                #inblock = AliasState.NONE
             else:
                 linesp = line.split('=')
                 try:
@@ -1186,16 +1145,12 @@ def tsizeeval2(filelines):
                     valaa = linesp[1].strip()
                     sfxAliases[keya] = 'ds' + valaa
                 except Exception:
-                    inSfxAliases = False
-        
-        elif '[SPRITES]' in line:
-            inSprAliases = True
-            i += 1
-            continue
+                    inblock = AliasState.SFX
             
-        elif inSprAliases:
+        elif inblock == AliasState.SPR:
             if not line.strip():
-                inSprAliases = False
+                i += 1
+                continue
             else:
                 linesp = line.split('=')
                 try:
@@ -1203,7 +1158,7 @@ def tsizeeval2(filelines):
                     valaa = linesp[1].strip()
                     sprAliases[keya] = valaa
                 except Exception:
-                    inSprAliases = False
+                    inblock = AliasState.SPR
         
         i += 1
         
