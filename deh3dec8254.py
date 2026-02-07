@@ -694,6 +694,11 @@ class weapon_t(ourbase_t):
     flags: int = 0
 
 @dataclass
+class ammo_t(ourbase_t):
+    max: int = 0
+    per: int = 0
+
+@dataclass
 class actor_t(thing_t):
     spawnloop: list = None
     seeloop: list = None
@@ -915,6 +920,8 @@ def block_header_try(line):
         return state_t
     elif line.startswith('Weapon'):
         return weapon_t
+    #elif line.startswith('Ammo'):
+    #    return ammo_t
     else:
         return 0
 
@@ -1594,9 +1601,7 @@ f'A_CustomPunch({damageexpr1}, TRUE, 0, "BulletPuff", {rangee}, 0,0,"ArmorBonus"
     if expr is None:
         raise ValueError(f"Неожиданное состояние: action={action}, expr=None")
     return expr
-    
-def getLabelName(index, actor):
-    pass    
+
 #21:56 15.05.2025 todo: adapt to JUMPS
 #23:34 15.05.2025 oops, was watching youtube, like
 #19:38 17.05.2025 gonna make a list of funcs with branching
@@ -1727,12 +1732,6 @@ def is_same_actions(s1, s2):
         s1.args == s2.args #22:06 17.05.2025
     )
 #23:39 19.05.2025
-def get_corresponding_number(num,list1,list2):
-    if num in list1:
-        index = list1.index(num)
-        return list2[index]
-    else:
-        return None
     
 def decorateStates(actor):
     global curactor, vivod
@@ -2389,7 +2388,7 @@ def decorateActor(actor, iswepen = 0):
 
     if iswepen:
         wepenum = WEAPONIDS.index(actor.index) + 2
-        daStream += wepenHeader(wepenum)
+        daStream += wepenHeader(wepenum)[0]
         
     return daStream
 def getWepenProperties(wepens):
@@ -2431,6 +2430,9 @@ def wepenHeader(wepenum):
                     actorinh+
                     '\n\t{\n')
         whStream += actorRow
+        
+
+    donesomething = False
     
     nwp = getWepenProperties(newwepen)
     owp = getWepenProperties(oldwepen)
@@ -2442,11 +2444,12 @@ def wepenHeader(wepenum):
         except Exception:
             typ = 'Clip'  
         whStream+=f'Weapon.AmmoType "{typ}"\n'
+        donesomething = True
     
     if newwepen.ammopershot!=oldwepen.ammopershot:
         ammouse = newwepen.ammopershot
         whStream+=f'Weapon.AmmoUse {ammouse}\n'
-    #Weapon.KickBack
+        donesomething = True
     
     '''
     flagdiff = newwepen.flags^oldwepen.flags   
@@ -2455,11 +2458,17 @@ def wepenHeader(wepenum):
     wfdiff = get_flags_diff(oldwepen.flags,newwepen.flags,WEPENFLAGS)
     if wfdiff:
         whStream+=wfdiff+'\n'
+        donesomething = True
 
     if newwepen.flags & 1:
         whStream+='Weapon.KickBack 0\n'
-        
-    return whStream
+        donesomething = True
+
+##    donesomething = True
+##    if donesomething:    
+##        return whStream
+##    return ''
+    return whStream, donesomething
     
     
     
@@ -2488,14 +2497,13 @@ def decFullOtherWepen(i9):
     bits = 3
     temp1 = decorateWepenStates(i9)
     if temp1 == '\tStates\n\t{\n\t}\n':
-        #bits &= ~0b001
         bits -= 1
 
-    temp2 = wepenHeader(i9)
-    aftern = temp2.find('\n')
-    temp2l2 = temp2[aftern+1:]
-    if temp2l2 == '\t{\n\n':
-        #bits &= ~0b010
+    temp2, gena = wepenHeader(i9)
+##    aftern = temp2.find('\n')
+##    temp2l2 = temp2[aftern+1:]
+##    if temp2l2 == '\t{\n\n':
+    if not gena:
         bits -= 2
 
     if bits:
@@ -2548,18 +2556,7 @@ def decFullActor(actor):
             return temp2+'}\n'
     return ''
     
-
-    
-        
-            
-            
-            
-        
-        
-        
-
 thingTracker, frameTracker, weaponTracker = list,list,list
-#modtracker: [class, index, field, what]
 def compareThings():
     
     TPAIRS = [[tt,tt0],[st,st0],[wt,wt0]]
@@ -2756,7 +2753,7 @@ print(vivod)
 #    print("//labelsGood")
 
 if languageStream:
-    print('//LANGUAGE START','[enu default]\n', languageStream,'//LANGUAGE END', sep = '\n')
+    print('/*LANGUAGE START','[enu default]', languageStream,'*/LANGUAGE END', sep = '\n')
 
 #print('*/')
 #if __name__ == "__main__":
