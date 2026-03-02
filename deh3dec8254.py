@@ -55,7 +55,8 @@ wha = 'H:\\Compilers\\dehacked2decorate\\BaseTables\\'
 #patient = "H:/Games/Doom/DEHACKED300lnmas.txt"
 #patient = "H:/Games/Doom/dehackedAnomalyDeimos11.txt"
 #patient = "H:/Games/Doom/uacprimetxt/DEHACKED.txt"
-patient = "H:/Games/Doom/DEHACKED_bootleg.txt"
+#patient = "H:/Games/Doom/DEHACKED_bootleg.txt"
+patient = "H:/Games/Doom/DEHACKEDpd2.txt"
 files = ['base_states2.dat','base_things.dat']
 labelDict = {}
 
@@ -908,8 +909,14 @@ def make_get_int(data):
         try:
             return int(value)
         except ValueError:
-            print(f"Ошибка при чтении [{key}]: '{value}' — не число")
-            return default
+            #22:49 02.03.2026 pirate doom 2 fixed numbers
+            try:
+                if '.' in value:
+                    return int(value.split('.')[0])
+                #return int(round(value))
+            except Exception:
+                print(f"Ошибка при чтении [{key}]: '{value}' — не число")
+                return default
     
     return get_int
 
@@ -995,15 +1002,18 @@ def parse_block(lines, blocktype = thing_t):
     table = TABLE_LIST[tablenum]
     
     for line in lines:
+        line = line.strip()
         if not line: #or '=' not in line:
             continue
-        line = line.strip()
         if '=' in line:
             key, value = map(str.strip, line.split('=', 1))
         else:
             parts = line.split(' ')
             key = parts[0].strip()
-            value = parts[1].strip()
+            try:
+                value = parts[1].strip()
+            except IndexError:
+                print('pd2 catch', line, parts)
             #key, value = map(str.strip, line.split(' ', 1))
             
         data[key] = value
@@ -1616,30 +1626,31 @@ healchaseOuts = []
 
 def deh_read_frames(lines):
     for line in lines:
-        if line.startswith('FRAME'):
-            parts = line.split()
-            frameIndex = int(parts[1])
-            frameAction = parts[3]
-            st[frameIndex].action = frameAction
-            if st[frameIndex].args[0] or st[frameIndex].misc1:
-                if frameAction in JUMPACTIONS:
-                    jumppoints.append(jumppoint_t(frameIndex, st[frameIndex].args[0]))
-                    if frameAction == 'HealChase':
-                        healchaseOuts.append(st[frameIndex].args[0])
-                elif frameAction == 'RandomJump':
-                    jumppoints.append(jumppoint_t(frameIndex, st[frameIndex].misc1))
-                #elif frameAction == 'FirePlasma':
-                #    jumppoints.append(jumppoint_t(frameIndex, st[frameIndex].misc1))
-            if frameAction == 'FirePlasma':
-                fireplaswepens = findFlash(frameIndex)
-                if not fireplaswepens:
-                    print(f'//{frameIndex} w/o fplswn!')
-                for wepe in fireplaswepens:
-                    wfstt = wepe.flashstate
-                    jumppoints.append(jumppoint_t(
-                        #frameIndex, wepe.flashstate + 1
-                        wfstt, wfstt + 1
-                        ))
+        if line.upper().startswith('FRAME'):
+            parts = line.strip().split()
+            if len(parts)>2:
+                frameIndex = int(parts[1])
+                frameAction = parts[3]
+                st[frameIndex].action = frameAction
+                if st[frameIndex].args[0] or st[frameIndex].misc1:
+                    if frameAction in JUMPACTIONS:
+                        jumppoints.append(jumppoint_t(frameIndex, st[frameIndex].args[0]))
+                        if frameAction == 'HealChase':
+                            healchaseOuts.append(st[frameIndex].args[0])
+                    elif frameAction == 'RandomJump':
+                        jumppoints.append(jumppoint_t(frameIndex, st[frameIndex].misc1))
+                    #elif frameAction == 'FirePlasma':
+                    #    jumppoints.append(jumppoint_t(frameIndex, st[frameIndex].misc1))
+                if frameAction == 'FirePlasma':
+                    fireplaswepens = findFlash(frameIndex)
+                    if not fireplaswepens:
+                        print(f'//{frameIndex} w/o fplswn!')
+                    for wepe in fireplaswepens:
+                        wfstt = wepe.flashstate
+                        jumppoints.append(jumppoint_t(
+                            #frameIndex, wepe.flashstate + 1
+                            wfstt, wfstt + 1
+                            ))
                 
                 
 def findFlash(x):
