@@ -56,7 +56,8 @@ wha = 'H:\\Compilers\\dehacked2decorate\\BaseTables\\'
 #patient = "H:/Games/Doom/dehackedAnomalyDeimos11.txt"
 #patient = "H:/Games/Doom/uacprimetxt/DEHACKED.txt"
 #patient = "H:/Games/Doom/DEHACKED_bootleg.txt"
-patient = "H:/Games/Doom/DEHACKEDpd2.txt"
+#patient = "H:/Games/Doom/DEHACKEDpd2.txt"
+patient = "H:/Games/Doom/DEHACKEDuacprime.txt"
 files = ['base_states2.dat','base_things.dat']
 labelDict = {}
 
@@ -181,7 +182,7 @@ def get_flags_diff(flags_a, flags_b, flagtable = MBFFLAGS):
             result.append('RenderStyle Translucent\nAlpha 0.5')
     if flags_b & 0x00004000:
         if flagtable == MBFFLAGS:
-            result.append('+NOBLOCKMONST')
+            result.append('+NOBLOCKMONST+DONTSPLASH')
 
     return "\n".join(result)
 
@@ -1069,10 +1070,11 @@ def tsizeeval2(filelines):
     
     i = 0
     while i < len(filelines):
-        line = filelines[i]
+        line = filelines[i].strip()
+        parts = line.split()
         val = extract_number(line)
         
-        if line.startswith('Frame '):
+        if len(parts)<3 and line.upper().startswith('FRAME'):
             stptr = val
             if val > stsize:
                 stsize = val
@@ -1327,18 +1329,20 @@ def doAction(state):
     # MBF21 BEGIN
     #
     elif action == 'SpawnObject':
-        sxf_flags = 0
+        sxf_flags = 32 #SXF_NOCHECKPOSITION
         for i in range(1,8):
             args[i]=int32tofixed(args[i])
+        #1:01 12.03.2026 razjaesnenije dlae czego eto:
+        #da chuj jego znajet
         if args[0] and tt[args[0]].flags & 0x20010000:
             if curactor.flags & 0x20010000:
-                sxf_flags |= 0x000400
+                sxf_flags |= 0x000400 #SXF_TRANSFERPOINTERS
             else:
-                sxf_flags |= 0x100400
+                sxf_flags |= 0x100400 #SXF_ISTRACER
                 
         expr = (
             f'A_SpawnItemEx("{getActorName(args[0])}",{args[2]},{args[3]},{args[4]},'
-            f'{args[5]},{args[6]},{args[7]},{args[1]},{sxf_flags})'
+            f'{args[5]},{args[6]},{args[7]},{args[1]},{sxf_flags},0,tid)'
             )
     elif action == 'MonsterProjectile':
         for i in range(1,5):
