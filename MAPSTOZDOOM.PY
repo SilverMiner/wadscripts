@@ -288,24 +288,82 @@ def getdonebytag(tag, sectype):
         return f'Sector_SetDamage({tag},{params[0]},{params[1]},{params[2]},{params[3]});\n'
     return ''
     
-scriptStream = (
-    '//FS BEGIN\n'
-    '[SCRIPTS]\n'
-                'int lnum = levelnum();\n'
-'script 254 {\n'
-   'int helth = trigger.objhealth();\n'
-   'if (helth<=10)\n'
-   '{\n'
-    'healobj(trigger, 100-helth)\n;'
-    '}\n'
+scriptStream = '''//FS BEGIN
+[SCRIPTS]
+
+int lnum = levelnum();
+int mapthingcount = mapthings();
+const tagIndex2 = 69;
+const w = 1;
+int waited,i,helth;
+mobj j,ball;
+string s;
+
+script 254
+{
+    helth = trigger.objhealth();
+
+    if (helth <= 10)
+        {
+            healobj(trigger, 100 - helth);
+        }
+'''
+KUSOCZEK8192 = '''for (i=mapthingcount,i>=0,i--)
+	{
+		if (i.mapthingnumexist==1)
+		{
+			j = i.mobjvalue;
+			s = j.stringvalue;
+			if (j.objflag(2)&&!j.objflag(14)&&!j.isplayerobj)
+			{
+				ball = spawn("vautag", i.objx,i.objy,0,i.objheight+3,1);
+				
+				ball.objmomz(-8.5);
+				if (ball.objmomz!=0)
+				{
+                                    ball.healobj(tagIndex2);
+				}	
+checkBall:
+				wait(1);
+				if (ball.objmomz!=0)
+				{
+				goto(checkBall);
+				}
+			}
+		}
+		if ((waited&7)==0)
+		{
+			wait(w);
+		}
+		waited++;
+	}
+'''
+
+LULZOCZEKtest = '''while (1==1)
+    {
+        ThrustThingZ(tagIndex2, 8, 0, 0);
+        wait(20);
+    }
+'''
+LULZOCZEK = '''while (1==1)
+    {
+        ThrustThingZ(tagIndex2, 25, 1, 0);
+        wait(20);
+    }
+'''
+#splash budet jesli zmov strogo nize czem -6*FRACUNIT.
+#a ThrustThingZ dajot arg1*FRACUNIT/4. poetomu podchodit czislo 25
+
+
 #    '}\n'
 #                'script 1 {\n'
-                )
+#                )
 #17:30 28.12.2025 opiszu a to ja zabyl:
 #jest localnyje slovari, a jest globalnyje
 def genFSGLOBAL():
     global scriptStream, warnings, xlatStream
     for name in mapnames:
+        isThere8192 = False
         heightHackNotUsed = True
         #xlatHackNotUsed = True
         xlatHackPossible = False
@@ -337,10 +395,14 @@ def genFSGLOBAL():
         scriptStream += (f'if (lnum=={lnum})'
                          '{\n'
                          )
+        
+        
         for si in bindex:
             situpeja = sitotype.get(si, 0)
             #typea = (situpeja & 0x60) >> 5
             typea = typetoa(situpeja)
+            if typea>3:
+                isThere8192 = True
             flatone = sitoflat.get(si, '')
             
             # Основной случай - не sky или не тот тип
@@ -399,6 +461,12 @@ def genFSGLOBAL():
             typeb = (tagtotype.get(tag, 0)&0x60)>>5
             scriptStream += getdonebytag(tag, typeb)
 
+        if isThere8192:
+            scriptStream += KUSOCZEK8192
+
+#23:46 11.03.2026
+#lulz debugging
+        scriptStream += LULZOCZEK
         
         scriptStream += 'return();}\n'
     scriptStream += ('}\n'
@@ -647,11 +715,7 @@ def main(args):
     for word in flatsonmbf21secs:
         wordHashedList = generateWordHashedList(word)
         terrainflats[word] = wordHashedList
-        if word in anim_good:
-            gugh = anim_good.index(word)
-            for wordHashed in wordHashedList:
-                if wordHashed in terrainneedset:
-                    animStream += doAnimEntry(word, wordHashed, gugh)
+
 
     
     #print(terrainflats, terrainneedglobal, sitotypeglobal)
@@ -664,6 +728,15 @@ def main(args):
     genTERRAIN()
     genTEXTURES()
     #genANIMDEFS()
+
+    for word in flatsonmbf21secs:
+        wordHashedList = generateWordHashedList(word)
+        
+        if word in anim_good:
+            gugh = anim_good.index(word)
+            for wordHashed in wordHashedList:
+                if wordHashed in terrainneedset:
+                    animStream += doAnimEntry(word, wordHashed, gugh)
             
     if animStream:
         print('//ANIMDEFS BEGIN\n',animStream,'//ANIMDEFS END\n',sep='\n')
