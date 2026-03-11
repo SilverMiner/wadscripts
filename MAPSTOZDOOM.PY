@@ -16,14 +16,21 @@
 #PATIENTA = "H:/Games/Doom/300lnmas.wad"
 #PATIENTA = "H:/Games/Doom/SNOWBALL INSANITY [WINNKAR].wad"
 #PATIENTA = "H:/Games/Doom/nt2f.wad"
-PATIENTA = 'H:/Games/Doom/The Warp RC1.wad'
+#PATIENTA = 'H:/Games/Doom/The Warp RC1.wad'
+#PATIENTA = 'H:/Games/Doom/andeimos_v1.1.wad'
+PATIENTA = 'H:/Games/Doom/uacprime.wad'
 PATIENTB = "H:/Games/Doom/DOOM2.wad"
 anim_speeds = []
 SECTYPE2NAMES = {
 0:'FLR4096',
 1:'FLR4128',
 2:'FLR4160',
-3:'FLR4192'
+3:'FLR4192',
+4:'FLR8192',
+5:'FLR12288',
+6:'FLR12320',
+7:'FLR12352',
+8:'FLR12384',
     }
 SECTYPE3NAMES = {
 0:'kill plr w/o prot-n',
@@ -55,8 +62,8 @@ mapnames = []
 terrainflats ={}
 flatsonmbf21secs = set()
 
-#chaska is tag to type dict
-chaskaglobal = {}
+#tagtotype is tag to type dict
+tagtotypeglobal = {}
 
 #index to type
 sitotypeglobal = {}
@@ -70,7 +77,7 @@ sitoheightglobal = {}
 heightglobal = {}
 
 #21:10 16.01.2026
-mbf21uniqueglobal = {}
+mbf21skiesglobal = {}
 
 
 #BRANCHES 18:48 30.05.2025
@@ -81,6 +88,27 @@ tagglobal = {}
 terrainneedglobal = {}
 newtoformerglobal = {}
 terrainneedset = set()
+def typetoa(num: int) -> int:
+    """
+    Вычисляет значение по формуле:
+    -1 + (есть бит12?1:0) + (есть бит13?5:0) + ((число & 0x60) >> 5)
+    """
+    # Проверка бита 12 (нумерация битов с 0, так что бит 12 = 1 << 12)
+    bit12 = 1 if (num & (1 << 12)) else 0
+    
+    # Проверка бита 13 (1 << 13)
+    bit13 = 1 if (num & (1 << 13)) else 0
+    
+    if not (bit12 or bit13):
+        return 0
+    
+    # Получаем биты 5 и 6 (0x60 = 01100000 в двоичной)
+    bits_5_6 = (num & 0x60) >> 5
+    
+    # Вычисляем результат
+    result = -1 + bit12 * 1 + bit13 * 5 + bits_5_6
+    
+    return result
 
 def findmbf21lines(map):
     ed = MapEditor(map)   
@@ -101,10 +129,10 @@ def findmbf21sectors(map, name):
     mbf21lines = {}
     
     mbf21secs = set()
-    mbf21unique = set() #21:06 16.01.2026
+    mbf21skies = set() #21:06 16.01.2026
     sitotype = {}
     sitoflat = {}
-    chaska = {}
+    tagtotype = {}
     #17:32 28.12.2025
     sitoheight = {}
 
@@ -137,18 +165,21 @@ def findmbf21sectors(map, name):
             
         sitoheight[si] = sec.z_floor
         
-        if sec.tag in chaska:
-            chaska[sec.tag].add(sec.type)
+        if sec.tag in tagtotype:
+            tagtotype[sec.tag].add(sec.type)
         else:
-            chaska[sec.tag] = {sec.type}
+            tagtotype[sec.tag] = {sec.type}
 
         if sec.type & 8192:
+            mbf21secs.add(si)
             warnings += '//' + name + f' {ed.sectors[si].type} si:{si} tag:{ed.sectors[si].tag}\n'
+            if not sec.tag:
+                warnings += '//ACHTUNG!'
             
         if sec.type & 4096:
             mbf21secs.add(si)
             if sec.tx_floor == 'F_SKY1':
-                mbf21unique.add(sec.type & 4192)
+                mbf21skies.add(sec.type & 4192)
             if not warndone:
                 warnings += '//' + name + f' {SECTYPE3NAMES.get((ed.sectors[si].type & 0x60) >> 5)} {ed.sectors[si].type} si:{si} tag:{ed.sectors[si].tag}\n'
             #if (sec.type & 0x60) >> 5 < 2:
@@ -163,20 +194,21 @@ def findmbf21sectors(map, name):
 
     filtered_data = {
     key: num
-    for key, value in chaska.items()
+    for key, value in tagtotype.items()
     if len(value) == 1
     for num in value
     if (num & 4096) != 0
+    #if (num & 12288) != 0
 }
-    chaska = filtered_data
-    if chaska: chaskaglobal[name] = chaska
+    tagtotype = filtered_data
+    if tagtotype: tagtotypeglobal[name] = tagtotype
     
     
 
     btag,bindex = set(),set()
     
     for si in mbf21secs:
-        if ed.sectors[si].tag not in chaska.keys():
+        if ed.sectors[si].tag not in tagtotype.keys():
             sitotype[si]=ed.sectors[si].type
             sitoflat[si]=ed.sectors[si].tx_floor
             bindex.add(si)
@@ -191,8 +223,8 @@ def findmbf21sectors(map, name):
         exit(0)
 
     for x in (4096, 4128):
-        mbf21unique.discard(x)
-    warnings += '//' + name + f' {mbf21unique}\n'
+        mbf21skies.discard(x)
+    warnings += '//' + name + f' {mbf21skies}\n'
 
     if bindex: indexglobal[name] = sorted(bindex)
     if btag: tagglobal[name] = sorted(btag)
@@ -200,7 +232,7 @@ def findmbf21sectors(map, name):
     if sitoflat: sitoflatglobal[name] = sitoflat
     if sitoheight: sitoheightglobal[name] = sitoheight
     heightglobal[name] = minheight, maxheight
-    if mbf21unique: mbf21uniqueglobal[name] = mbf21unique
+    if mbf21skies: mbf21skiesglobal[name] = mbf21skies
     
 
                 
@@ -220,7 +252,7 @@ pattern = "*"
 def getdonebyindex(si, sectype, flatone):
     global terrainflats,terrainneedglobal,newtoformerglobal,terrainneedset
     si2 = si if si!=0 else 32768
-    flatfour = terrainflats.get(flatone,[f'{si} {sectype} {flatone}']*4)[sectype]
+    flatfour = terrainflats.get(flatone,[f'{si} {sectype} {flatone}']*9)[sectype]
     terrainneedglobal[flatfour]=sectype
     newtoformerglobal[flatfour]=flatone
     terrainneedset.add(flatfour)
@@ -228,8 +260,8 @@ def getdonebyindex(si, sectype, flatone):
     return f'floortext(-{si2},"{flatfour}");\n'
     
 #bytag done 12:08 31.05.2025
-def getdonebytag(tag, sectype):
-    
+def getdonebytagold(tag, sectype):
+#tag, amount, damagetype, interval, leaky     
     if sectype == 0:
         return f'Sector_SetDamage({tag},999,14,1,0);\n' #kill if no radsuit or invul
     
@@ -241,19 +273,33 @@ def getdonebytag(tag, sectype):
 
     elif sectype == 3:
         return f'Sector_SetDamage({tag},1,25,1,255);' #secret exit
+
+#21:44 11.03.2026
+def getdonebytag(tag, sectype):
+    damage_params = {
+        0: (999, 14, 1, 0),    # kill if no radsuit or invul
+        1: (1000, 1000, 1, 255), # instadeath
+        2: (1, 20, 1, 255),     # exit normal
+        3: (1, 25, 1, 255),     # secret exit
+    }
+    
+    params = damage_params.get(sectype)
+    if params:
+        return f'Sector_SetDamage({tag},{params[0]},{params[1]},{params[2]},{params[3]});\n'
+    return ''
     
 scriptStream = (
     '//FS BEGIN\n'
     '[SCRIPTS]\n'
                 'int lnum = levelnum();\n'
-'script 106 {\n'
+'script 254 {\n'
    'int helth = trigger.objhealth();\n'
    'if (helth<=10)\n'
    '{\n'
     'healobj(trigger, 100-helth)\n;'
     '}\n'
-    '}\n'
-                'script 1 {\n'
+#    '}\n'
+#                'script 1 {\n'
                 )
 #17:30 28.12.2025 opiszu a to ja zabyl:
 #jest localnyje slovari, a jest globalnyje
@@ -265,7 +311,7 @@ def genFSGLOBAL():
         xlatHackPossible = False
         hacksectypes = set() #22:04 16.01.2026
         
-        mbf21uniq = mbf21uniqueglobal.get(name, set())
+        mbf21uniq = mbf21skiesglobal.get(name, set())
         if len(mbf21uniq) < 2:
             xlatHackPossible = True
         else:
@@ -282,7 +328,7 @@ def genFSGLOBAL():
         sitotype = sitotypeglobal.get(name, {})
         sitoflat = sitoflatglobal.get(name, {})
 
-        tagtotype = chaskaglobal.get(name, {})
+        tagtotype = tagtotypeglobal.get(name, {})
 
 #17:51 28.12.2025
         minheight, maxheight = heightglobal.get(name, {})
@@ -293,11 +339,12 @@ def genFSGLOBAL():
                          )
         for si in bindex:
             situpeja = sitotype.get(si, 0)
-            typea = (situpeja & 0x60) >> 5
+            #typea = (situpeja & 0x60) >> 5
+            typea = typetoa(situpeja)
             flatone = sitoflat.get(si, '')
             
             # Основной случай - не sky или не тот тип
-            if typea > 1 and flatone != 'F_SKY1':
+            if (typea > 1 and flatone != 'F_SKY1') or typea > 3:
                 scriptStream += getdonebyindex(si, typea, flatone)
                 continue
             
@@ -355,15 +402,30 @@ def genFSGLOBAL():
         
         scriptStream += 'return();}\n'
     scriptStream += ('}\n'
-'startscript(1);\n'
-'startscript(106);\n'
+#'startscript(1);\n'
+'startscript(254);\n'
 '//FS END\n'
                      )
     
     print(scriptStream)
 
+suffixes3 = [4096, 4128, 4160, 4192, 8192, 12288, 12320, 12352, 12384]
 TERRAINPROTO = (
 '''//TN BEGIN
+splash SPL8192
+{
+	smallclass		SPL8192
+	smallclip		0
+	smallsound		None
+	baseclass		SPL8192
+	chunkclass		None
+	chunkxvelshift	0
+	chunkyvelshift	0
+	chunkzvelshift	0
+	chunkbasezvel	1
+	sound			None
+	noalert
+}
 terrain FLR4096
 {
 DamageType Massacre
@@ -384,6 +446,37 @@ terrain FLR4192
 {
 DamageType Disintegrate
 DamageAmount 1000
+}
+
+terrain FLR8192
+{
+splash SPL8192
+}
+
+terrain FLR12288
+{
+DamageType Massacre
+DamageAmount 1000
+AllowProtection
+splash SPL8192
+}
+terrain FLR12320
+{
+DamageType Massacre
+DamageAmount 1000
+splash SPL8192
+}
+terrain FLR12352
+{
+DamageType Exit
+DamageAmount 1000
+splash SPL8192
+}
+terrain FLR12384
+{
+DamageType Disintegrate
+DamageAmount 1000
+splash SPL8192
 }
 '''
     )
@@ -414,22 +507,13 @@ def genTEXTURES():
 
 animStream = ''
 
-def funca(dicta):
-    has1 = hash(dicta.keys())
-    has2 = hash(dicta.values())
-    has3 = has1^has2
-    return f'F{int(has3) % 10_000_000:07d}'
-
 def hashSilver(x):
     #return f"F{int(hash(x)) % 10_000_000:07d}"
     sha256_hash = hashlib.sha256(str(x).encode('utf-8')).hexdigest()
     return f"F{int(sha256_hash, 16) % 10_000_000:07d}"
-def funcb(x):
-    has1 = hashSilver(x+'fire')
-    has2 = hashSilver(x+'earth')
-    has3 = hashSilver(x+'air')
-    has4 = hashSilver(x+'water')
-    return [has1,has2,has3,has4]
+
+def generateWordHashedList(x):
+    return [hashSilver(x + str(s)) for s in suffixes3]
 
 def parse_animated_lump(anim_lump):
 
@@ -442,11 +526,8 @@ def parse_animated_lump(anim_lump):
         is_wall_texture = record_type in [1, 3]
 
         # Извлечение строк
-        #debil = anim_lump[1:23].split(b'\x00')
         last_texture = anim_lump[1:10].split(b'\x00')[0].decode('utf-8')
         first_texture = anim_lump[10:20].split(b'\x00')[0].decode('utf-8')
-        #last_texture = debil[0].decode('utf-8')
-        #first_texture = debil[1].decode('utf-8')
 
         # Извлечение скорости анимации
         speed = int.from_bytes(anim_lump[19:23], 'little')
@@ -498,7 +579,10 @@ def doAnimEntry(word, wordHashed, x):
     
 
 def main(args):
-    global pattern,mode,scriptStream,terrainflats,terrainneedglobal,anim_good,anim_ranges,animStream,anim_speeds,mbf21Stream,texStream,xlatStream
+    global pattern,mode,scriptStream,terrainflats,\
+    terrainneedglobal,anim_good,anim_ranges,\
+    animStream,anim_speeds,mbf21Stream,\
+    texStream,xlatStream,tagtotypeglobal,sitotypeglobal
     inwad = WAD()
     #outwad = WAD()
 	#0:45 28.12.2025
@@ -518,11 +602,6 @@ def main(args):
         print('guga')
 
     iwadflatlist=list(iwad.flats)
-    #print(iwadflatlist,'\n\n\n')
-    #print(list(inwad.flats),'\n\n\n')
-    #pwadflatlist=iwadflatlist+list(inwad.flats)
-    #23:41 10.01.2026 Бляха муха а ведь если ресурсник имеет новую скажем водичку, то анимдефс пойдёт по пизде
-    
     pwadflatlist = [flat for flat in iwadflatlist if flat not in list(inwad.flats)] + list(inwad.flats)
     if 'ANIMATED' in inwad.data.keys():
         anim_lump = inwad.data['ANIMATED'].data
@@ -541,12 +620,8 @@ def main(args):
                 continue
 
     # Убираем дубликаты, если диапазоны пересекаются
-    #anim_good = list(dict.fromkeys(anim_good))
-    #print(anim_good)
-    #return 0 #test animdefov
 
     #18:36 11.01.2026 razrulivanije widescreen stbarov
-    #stbar = inwad.data["STBAR"]
     if "STBAR" in inwad.graphics.keys():
         stbar = inwad.graphics["STBAR"]
         if stbar.width!=320:
@@ -565,33 +640,31 @@ def main(args):
         mapnames.append(name)
         findmbf21sectors(inwad.maps[name], name)
 
-    #print(chaskaglobal)
+    #print(tagtotypeglobal)
     
     #tx_floor to set of 4 terrain flats dict
 
     for word in flatsonmbf21secs:
-        wordHashedList = funcb(word)
+        wordHashedList = generateWordHashedList(word)
         terrainflats[word] = wordHashedList
-
-    
-    #print(terrainflats)
-
-    #print(indexglobal,tagglobal)
-    
-    genFSGLOBAL()
-    genTERRAIN()
-    genTEXTURES()
-    #genANIMDEFS()
-
-    for word in flatsonmbf21secs:
-        wordHashedList = funcb(word)
         if word in anim_good:
             gugh = anim_good.index(word)
             for wordHashed in wordHashedList:
                 if wordHashed in terrainneedset:
                     animStream += doAnimEntry(word, wordHashed, gugh)
+
     
+    #print(terrainflats, terrainneedglobal, sitotypeglobal)
+    #print(indexglobal,tagglobal)
+    #print(tagtotypeglobal)
+    #print(sitotypeglobal)
+    print('sitotypeglobal:',sitotypeglobal,'tagtotypeglobal:',tagtotypeglobal)
     
+    genFSGLOBAL()
+    genTERRAIN()
+    genTEXTURES()
+    #genANIMDEFS()
+            
     if animStream:
         print('//ANIMDEFS BEGIN\n',animStream,'//ANIMDEFS END\n',sep='\n')
 
@@ -604,3 +677,8 @@ def main(args):
 if __name__ == "__main__":
     main(argv[1:])
 
+#23:40 12.02.2026
+#itak kak resolvit ekszon 8192. nado ponimat kuda on primenajetsa.
+
+#17:59 07.03.2026
+#ja ponael czo delat. no kod zdes oczen uze samobytnyj.
