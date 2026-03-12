@@ -11,8 +11,7 @@ import copy, os
 
 #PATIENT = "H:/Games/Doom/UMAPINFO300lnmas.txt"
 #PATIENT = "H:/Games/Doom/UMAPINFO (3)admorte.txt"
-#PATIENT = "H:/Games/Doom/uacprimetxt/UMAPINFO.txt"
-PATIENT = "H:/Games/Doom/UMAPINFO_For_BootLeg.txt"
+PATIENT = "H:/Games/Doom/uacprimetxt/UMAPINFO.txt"
 um2miWarnings = ''
 # глобальный буфер, в который будет складываться весь вывод
 vivod = []
@@ -2872,6 +2871,7 @@ def main():
 	compat_silent_instant_floors = 0
 	compat_sectorsounds = 0
 	compat_soundtarget = 1
+	fs_nocheckposition = 1
 }
 	''')
     reflect_umapinfo2(level_dict)
