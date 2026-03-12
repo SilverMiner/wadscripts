@@ -295,12 +295,16 @@ int lnum = levelnum();
 int mapthingcount = mapthings();
 const tagIndex2 = 69;
 const w = 1;
-int waited,i,helth;
+int waited,i,helth,failed,iterations;
 mobj j,ball;
 string s;
 
 script 254
 {
+   if (!checkinventory(0, "QuestItem1",1))
+   {
+      giveinventory(0, "QuestItem1");
+   }
     helth = trigger.objhealth();
 
     if (helth <= 10)
@@ -316,13 +320,19 @@ KUSOCZEK8192 = '''for (i=mapthingcount,i>=0,i--)
 			s = j.stringvalue;
 			if (j.objflag(2)&&!j.objflag(14)&&!j.isplayerobj)
 			{
-				ball = spawn("vautag", i.objx,i.objy,0,i.objheight+3,1);
+				ball = spawn("vautag",i.objx,i.objy,0,0,1);
 				
 				ball.objmomz(-8.5);
 				if (ball.objmomz!=0)
 				{
-                                    ball.healobj(tagIndex2);
-				}	
+					ball.healobj(tagIndex2);
+				goto(checkBall);
+				}
+				else()
+				{
+					failed++;
+					tip("where failed: ",i.objx,i.objy);
+				}
 checkBall:
 				wait(1);
 				if (ball.objmomz!=0)
@@ -336,7 +346,11 @@ checkBall:
 			wait(w);
 		}
 		waited++;
+		iterations++;
 	}
+tip("failed: ",failed," iters: ",iterations);
+
+
 '''
 
 LULZOCZEKtest = '''while (1==1)
@@ -486,7 +500,7 @@ splash SPL8192
 	smallclip		0
 	smallsound		None
 	baseclass		SPL8192
-	chunkclass		None
+	chunkclass		SPL8192
 	chunkxvelshift	0
 	chunkyvelshift	0
 	chunkzvelshift	0
