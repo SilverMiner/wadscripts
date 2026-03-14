@@ -77,6 +77,8 @@ curactor = -1
 labelStream = ''
 #23:56 10.01.2026
 languageStream = ''
+def bounces_handler(flags):
+    pass
 def labelcatcher(x):
     global labelStream
     labelStream += str(x)+f'in {curactor}'+'\n'
@@ -138,7 +140,7 @@ MBFFLAGS = {
     #0x04000000: "TRANSLATION1",
     #0x08000000: "TRANSLATION2",
     0x10000000: "TOUCHY",
-    #0x20000000: "BOUNCES",
+    0x20000000: "BOUNCES",
     0x40000000: "FRIENDLY",
     #0x80000000: "TRANSLUCENT"
 }
@@ -165,24 +167,35 @@ MBF21FLAGS = {
 }
 def get_flags_diff(flags_a, flags_b, flagtable = MBFFLAGS):
     flags_diff = flags_a ^ flags_b
-    result = []
+    #result = []
+    result = set()
     znak = ''
     for flag in sorted(flagtable.keys()):
         if flags_diff & flag:
             znak = '+' if flags_b & flag else '-'
-            result.append(f"{znak}{flagtable.get(flag,'')}")
+            result.add(f"{znak}{flagtable.get(flag,'')}")
     if flags_diff & 0x00040000:
         if flagtable == MBFFLAGS:
-            result.append('RenderStyle OptFuzzy\nAlpha 0.5')
-    if flags_diff & 0x20000000:
+            result.add('RenderStyle OptFuzzy\nAlpha 0.5')
+    if flags_b & 0x20000000:
         if flagtable == MBFFLAGS:
-            result.append('BounceType Grenade')
+            result.discard('+BOUNCES')
+            result.discard('-BOUNCES')
+            #19:37 14.03.2026 BOUNCES has to have a special handling.
+            result.add(bounces_handler(flags_b))
+            #result.add('BounceType Grenade')
     if flags_diff & 0x80000000:
         if flagtable == MBFFLAGS:
-            result.append('RenderStyle Translucent\nAlpha 0.5')
-    if flags_b & 0x00004000:
+            result.add('RenderStyle Translucent\nAlpha 0.5')
+    if flags_b & 0x00004000: #MF_FLOAT
         if flagtable == MBFFLAGS:
-            result.append('+NOBLOCKMONST+DONTSPLASH')
+            result.add('+NOBLOCKMONST+DONTSPLASH')
+    if flags_b & 0x4014 == 0x14: #+NOBLOCKMAP and +SHOOTABLE and -FLOAT
+        if flagtable == MBFFLAGS:
+            result.add('+NORADIUSDMG')
+            result.discard('+NOBLOCKMAP')
+            result.discard('+SOLID')
+            result.add('-SOLID')
 
     return "\n".join(result)
 
@@ -2327,12 +2340,20 @@ def decorateActor(actor, iswepen = 0):
         if i == 0:
             continue
         if nap[i]!=oap[i]:
-            #p2 = p // 65536 if i >= 3 and i <= 4 else p
+            '''
             p2 = p // 65536 if (
                 (i>=3 and i<=4)
                 or (i==2 and (actornew.flags & 0x00010000)
                     or i==9 or i==10)
                 ) else p
+            '''
+            #temp2337 = p // 65536
+            #p2 = temp2337 if temp2337 else p
+            if i in [1, 5, 8]:
+                p2 = p
+            else:
+                p2 = p//65536 or p
+            
             
             daStream += NUM2PROPERTIES.get(i,-1)+f' {p2}\n'
             
