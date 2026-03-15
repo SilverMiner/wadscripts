@@ -1386,15 +1386,20 @@ def doAction(state):
             args[i]=int32tofixed(args[i])
         #1:01 12.03.2026 razjaesnenije dlae czego eto:
         #da chuj jego znajet
+        snaryad = False
         if args[0] and tt[args[0]].flags & 0x20010000:
+            snaryad = True
             if curactor.flags & 0x20010000:
                 sxf_flags |= 0x000400 #SXF_TRANSFERPOINTERS
             else:
                 sxf_flags |= 0x100400 #SXF_ISTRACER
-        tida = 'tid' if curactor.flags &         
+        #try:
+            #tt[args[0]].flags
+            #tida = 'tid' if not curactor.flags & 0x20000000 else 0
+        tida = 0 if snaryad else 'tid'
         expr = (
             f'A_SpawnItemEx("{getActorName(args[0])}",{args[2]},{args[3]},{args[4]},'
-            f'{args[5]},{args[6]},{args[7]},{args[1]},{sxf_flags},0,tid)'
+            f'{args[5]},{args[6]},{args[7]},{args[1]},{sxf_flags},0,{tida})'
             )
     elif action == 'MonsterProjectile':
         for i in range(1,5):
