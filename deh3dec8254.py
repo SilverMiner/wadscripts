@@ -5,7 +5,17 @@ from dataclasses import dataclass, fields
 import copy
 #from collections import defaultdict
 #from typing import List
-from enum import Enum
+from enum import Enum, IntEnum
+class BounceFactor(IntEnum):
+    MBF_BOUNCE_NOGRAVITY = 65536
+    MBF_BOUNCE_FLOATDROPOFF = 65536 * 85 // 100
+    MBF_BOUNCE_FLOAT = 65536 * 70 // 100
+    MBF_BOUNCE_DEFAULT = 65536 * 45 // 100
+    MBF_BOUNCE_WALL = 65536 * 50 // 100
+
+MF_NOGRAVITY = 0x200
+MF_FLOAT = 0x4000
+MF_DROPOFF = 0x400
 
 MT_CLIP = 64
 MT_SHOTGUN = 78
@@ -78,7 +88,34 @@ labelStream = ''
 #23:56 10.01.2026
 languageStream = ''
 def bounces_handler(flags):
-    pass
+    BounceFlags = -1
+    newset = set()
+    newset.add('+VULNERABLE')
+    newset.add('+NOBLOCKMONST')
+    #newset.add('+FORCERADIUSDMG')
+    #newset.add('+DONTHARMCLASS')
+    if flags & 0x10000: #MISSILE
+        BounceFlags = 0 #BOUNCE_Classic | BOUNCE_DEH eto BOUNCE_MBF | BOUNCE_Floors | BOUNCE_Ceilings
+    else:
+        BounceFlags = 1 #BOUNCE_Grenade | BOUNCE_DEH eto BOUNCE_MBF | BOUNCE_Doom, a
+        #etot raven BOUNCE_Doom = BOUNCE_Walls | BOUNCE_Floors | BOUNCE_Ceilings | BOUNCE_Actors | BOUNCE_AutoOff
+
+    newset.add('+NOBLOOD')
+    bouncefactor = (
+    BounceFactor.MBF_BOUNCE_NOGRAVITY if flags & MF_NOGRAVITY else
+    (BounceFactor.MBF_BOUNCE_FLOATDROPOFF if flags & MF_FLOAT and flags & MF_DROPOFF else
+     (BounceFactor.MBF_BOUNCE_FLOAT if flags & MF_FLOAT else
+      BounceFactor.MBF_BOUNCE_DEFAULT))
+) /65536.0
+    wallbouncefactor = (
+    BounceFactor.MBF_BOUNCE_NOGRAVITY if flags & MF_NOGRAVITY else
+    BounceFactor.MBF_BOUNCE_WALL
+) /65536.0
+    newset.add(f'BounceType {"Grenade" if BounceFlags else "Classic"}')
+    newset.add(f'BounceFactor {bouncefactor}')
+    newset.add(f'WallBounceFactor {wallbouncefactor}')
+    return newset
+    
 def labelcatcher(x):
     global labelStream
     labelStream += str(x)+f'in {curactor}'+'\n'
@@ -182,7 +219,9 @@ def get_flags_diff(flags_a, flags_b, flagtable = MBFFLAGS):
             result.discard('+BOUNCES')
             result.discard('-BOUNCES')
             #19:37 14.03.2026 BOUNCES has to have a special handling.
-            result.add(bounces_handler(flags_b))
+            #result.add(bounces_handler(flags_b))
+            newset = bounces_handler(flags_b)
+            result.update(newset)
             #result.add('BounceType Grenade')
     if flags_diff & 0x80000000:
         if flagtable == MBFFLAGS:
@@ -1352,7 +1391,7 @@ def doAction(state):
                 sxf_flags |= 0x000400 #SXF_TRANSFERPOINTERS
             else:
                 sxf_flags |= 0x100400 #SXF_ISTRACER
-                
+        tida = 'tid' if curactor.flags &         
         expr = (
             f'A_SpawnItemEx("{getActorName(args[0])}",{args[2]},{args[3]},{args[4]},'
             f'{args[5]},{args[6]},{args[7]},{args[1]},{sxf_flags},0,tid)'
@@ -1427,7 +1466,7 @@ def doAction(state):
         expr = f'A_SeekerMissile({threshold},{turnmax},SMF_PRECISE)'
     elif action == 'RadiusDamage':
         damag = args[0]
-        distn = int32tofixed(args[1])
+        distn = args[1] #int32tofixed(args[1])
         #damagetyp = f"S{curactor.splash_group}" if curactor.splash_group else 'none'
         #expr = f'A_Explode({damag},{distn},XF_HURTSOURCE,0,0,0,10,"BulletPuff","{damagetyp}")'
         #18:09 12.01.2026 zdoom 2.8.1 doesn't have damagetype field for this
