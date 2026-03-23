@@ -2444,7 +2444,7 @@ def decorateActor(actor, iswepen = 0):
         item_name = actornew.splash_group
         if actornew.flags & 0x4:
             daStream += f'DamageFactor "S{item_name}", 0.0\n'
-        elif actornew.index in isSplashSource:
+        if actornew.index in isSplashSource:
             daStream += f'DamageType "S{item_name}"\n'
         
     #if not (get_flags_diff_1_num & 0x00400000) and actor.index in hasChase:
@@ -2841,4 +2841,4 @@ if languageStream:
 
 #18:38 24.12.2025 todo: see states are evaluated as "0" in case of 300 lines christmas dehacked
 #21:01 27.01.2026 todo: for anomaly deimos v1.1 i need to parse flags given as a sum of constants
-
+#13:45 23.03.2026 todo: splash damage turn into species and dontharmspecies or something. damagefactor seems to be not working
