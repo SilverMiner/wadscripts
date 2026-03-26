@@ -12,7 +12,7 @@ I dunno if it works for Chat uses Windows 98 or 2000.
 
 the chat this has been working so far: https://www.youtube.com/watch?v=tfZEXJj3-18
 avoid chats that disallow you to use some commands like Sam voice api.
-over time, they will limit more commands and if you don't use them, they will be forgotten
+over time, they will limit more commands and if you avoid them, they will be forgotten
 
 TIPS:
 This script expects you have zipped the midi you want to play.
