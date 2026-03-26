@@ -1,4 +1,6 @@
 #this script's author is SilverMiner, author of Plutonia 3, an expansion pack for Final Doom
+#14:38 26.03.2026
+#build time ‏‎since 11:29:29 25.03.2026
 
 YOURZIPWITHMIDI = 'Lost Soul.zip'
 CHUNK_SIZE = 195
