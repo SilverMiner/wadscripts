@@ -7,7 +7,9 @@ TIPS:
 If there's no !say command, use !type i guess, and use CHUNK_SIZE = 194,
 this is cuz youtube chat allows for 200 symbols at once.
 if someone disabled cmd so that winxp deleting guys couldn't mess things up,
-you have to send !combo win r !send reg add "HKCU\Software\Policies\Microsoft\Windows\System" /v DisableCMD /t REG_DWORD /d 0 /f
+you have to send
+!combo win r !send reg add "HKCU\Software\Policies\Microsoft\Windows\System" /v DisableCMD /t REG_DWORD /d 0 /f
+
 before you start process of transferring midi thru youtube chat.
 it'd be cool if that process would have been automated sometime.
 '''
