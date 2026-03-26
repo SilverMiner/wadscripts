@@ -5,7 +5,7 @@
 YOURZIPWITHMIDI = 'Lost Soul.zip'
 CHUNK_SIZE = 195
 '''
-This scripts generates you a serie of commands you send to chats like Chat uses Windows XP
+This script generates you a serie of commands you send to chats like Chat uses Windows XP
 so that it plays a midi there. It is untested on other versions of Windows in such chats.
 I believe it won't work for Chat uses Windows Vista, 7, 8, 10 and so on.
 I dunno if it works for Chat uses Windows 98 or 2000.
