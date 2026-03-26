@@ -3,6 +3,7 @@
 YOURZIPWITHMIDI = 'Lost Soul.zip'
 CHUNK_SIZE = 195
 '''
+the chat this has been working so far: https://www.youtube.com/watch?v=tfZEXJj3-18
 TIPS:
 This script expects you have zipped the midi you want to play.
 The best zipping program i've used is Ken Silverman's KZIP
