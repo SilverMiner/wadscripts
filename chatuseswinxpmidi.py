@@ -70,6 +70,6 @@ def encode_and_split(filename, chunk_size=CHUNK_SIZE):
         chunk = full_cmd[start:start + chunk_size]
         print(f"!say {chunk}")
 
-    print(f'!combo !key enter !send mplay32 /play "{file_inside_zip}"\n')
+    print(f'!combo !send !send mplay32 /play "{file_inside_zip}"\n')
 encode_and_split(YOURZIPWITHMIDI)
 
