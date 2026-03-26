@@ -21,7 +21,7 @@ The best zipping program i've used is Ken Silverman's KZIP
 example command of its usage:
 kzip.exe owl1407.zip owl.mid
 
-Try to get a midi that in its size is around 1.5 KiB, you usually won't be able to get less, and if you get more, it'll be
+Try to get a midi that in its size is around 1.5 KiB, you usually won't be able to get less, and if you get more that 2.0 KiBs, it'll be
 tedious thing to get your commands sent in time before some winxp deleter interrupts you
 
 If there's no !say command in a particular "yt chat uses winxp" handler, use !type i guess, and use CHUNK_SIZE = 194,
