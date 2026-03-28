@@ -3,7 +3,9 @@
 #build time ‏‎since 11:29:29 25.03.2026
 
 #YOURXZWITHMIDI = 'The Cannibal256word64kdict.mid.xz'
-YOURXZWITHMIDI = 'hr2can.xz'
+#YOURXZWITHMIDI = 'hr2can.xz'
+#YOURXZWITHMIDI = 'The Creeps.mid.xz'
+YOURXZWITHMIDI = 'The Pyramide.mid.xz'
 CHUNK_SIZE = 195
 '''
 This script generates you a serie of commands you send to chats like Chat uses Windows XP
