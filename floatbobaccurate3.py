@@ -29,7 +29,7 @@ def calculate_floatbob(x):
 def main():
     reslist = []
     for x in range(0, 64):
-        result = calculate_formula(x)
+        result = calculate_floatbob(x)
         reslist.append(result)
     print(reslist)
         
